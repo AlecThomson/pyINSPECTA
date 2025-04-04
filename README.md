@@ -12,11 +12,10 @@
 
 <!-- [![GitHub Discussion][github-discussions-badge]][github-discussions-link] -->
 
-
 <!-- prettier-ignore-start -->
 [codecov-link]:             https://codecov.io/gh/AlecThomson/pyINSPECTA
 [codecov-badge]:            https://codecov.io/gh/AlecThomson/pyINSPECTA/graph/badge.svg?token=7EARBRN20D
-[actions-badge]:            https://github.com/AlecThomson/pyINSPECTA/workflows/CI/badge.svg
+[actions-badge]:            https://github.com/AlecThomson/pyINSPECTA/actions/workflows/ci.yml/badge.svg
 [actions-link]:             https://github.com/AlecThomson/pyINSPECTA/actions
 [conda-badge]:              https://img.shields.io/conda/vn/conda-forge/sdhdf
 [conda-link]:               https://github.com/conda-forge/sdhdf-feedstock
