@@ -26,7 +26,7 @@
 [pypi-platforms]:           https://img.shields.io/pypi/pyversions/sdhdf
 [pypi-version]:             https://img.shields.io/pypi/v/sdhdf
 [rtd-badge]:                https://readthedocs.org/projects/sdhdf/badge/?version=latest
-[rtd-link]:                 https://pyINSPECTA.readthedocs.io/en/latest/?badge=latest
+[rtd-link]:                 https://pyinspecta.readthedocs.io/en/latest/?badge=latest
 
 
 <!-- prettier-ignore-end -->
