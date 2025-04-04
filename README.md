@@ -12,7 +12,6 @@
 
 <!-- [![GitHub Discussion][github-discussions-badge]][github-discussions-link] -->
 
-<!-- SPHINX-START -->
 
 <!-- prettier-ignore-start -->
 [codecov-link]:             https://codecov.io/gh/AlecThomson/pyINSPECTA
@@ -29,10 +28,12 @@
 [rtd-badge]:                https://readthedocs.org/projects/pyINSPECTA/badge/?version=latest
 [rtd-link]:                 https://pyinspecta.readthedocs.io/en/latest/?badge=latest
 
+
 <!-- prettier-ignore-end -->
 
-Python classes for reading, interactive with, and writing SDHDF files.
+Python tooling for reading, interactive with, and writing SDHDF files.
 
+<!-- SPHINX-START -->
 ## Installation
 
 Installing can be done with `pip` (we recommend using `uv`):
@@ -40,7 +41,7 @@ Installing can be done with `pip` (we recommend using `uv`):
 Stable version from PyPI:
 
 ```bash
-pip install pyINSPECTA
+pip install sdhdf
 ```
 
 Latest version from git:
