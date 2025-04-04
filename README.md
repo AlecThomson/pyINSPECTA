@@ -47,9 +47,7 @@ pip install sdhdf
 Latest version from git:
 
 ```bash
-git https://github.com/AlecThomson/pyINSPECTA.git
-cd pyINSPECTA
-pip install -e .
+pip install git+https://github.com/AlecThomson/pyINSPECTA.git
 ```
 
 ## Usage
