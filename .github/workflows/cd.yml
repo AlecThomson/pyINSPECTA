@@ -54,5 +54,3 @@ jobs:
           subject-path: "dist/*"
 
       - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://pypi.org/legacy/
