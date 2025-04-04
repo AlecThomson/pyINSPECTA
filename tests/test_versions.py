@@ -20,13 +20,13 @@ def test_sdhdf_versions():
             fname = f"sdhdf_v{version}.hdf"
             file_path = test_data / fname
 
-        my_sdhdf = SDHDF(file_path)
+            my_sdhdf = SDHDF(file_path)
 
-        expected_version = str(version)
-        if float(version[:3]) < 2.0:
-            expected_version = str(2.0)
-        elif float(version[:3]) == 2.2:
-            expected_version = str(2.9)
-        assert str(my_sdhdf.metadata.version) == expected_version, (
-            f"Version mismatch for {fname}"
-        )
+            expected_version = str(version)
+            if float(version[:3]) < 2.0:
+                expected_version = str(2.0)
+            elif float(version[:3]) == 2.2:
+                expected_version = str(2.9)
+            assert str(my_sdhdf.metadata.version) == expected_version, (
+                f"Version mismatch for {fname}"
+            )
