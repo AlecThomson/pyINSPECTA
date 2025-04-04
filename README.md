@@ -41,7 +41,7 @@ Installing can be done with `pip` (we recommend using `uv`):
 Stable version from PyPI:
 
 ```bash
-pip install pyINSPECTA
+pip install sdhdf
 ```
 
 Latest version from git:
