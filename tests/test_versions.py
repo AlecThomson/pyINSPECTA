@@ -1,17 +1,32 @@
-# SDHDF v1.9.3 (NOTE: This file has a single integration only)
-# fname = "./test_data/sdhdf_v1.9.3.hdf"
-#
-# SDHDF v2.0
-# fname = "./test_data/sdhdf_v2.0.hdf"
-#
-# SDHDF v2.1
-# fname = "./test_data/sdhdf_v2.1.hdf"
-#
-# SDHDF v2.2
-# fname = "./test_data/sdhdf_v2.2.hdf"
-#
-# SDHDF v3.0
-# fname = "./test_data/sdhdf_v3.0.hdf"
-#
-# SDHDF v4.0 (NOTE: this version onwards has compound attributes)
-# fname = "./test_data/sdhdf_v4.0.hdf"
+from __future__ import annotations
+
+from importlib import resources
+
+from sdhdf import SDHDF
+
+
+def test_sdhdf_versions():
+    versions = {
+        "1.9.3",
+        "2.0",
+        "2.1",
+        "2.2",
+        "3.0",
+        "4.0",
+    }
+
+    for version in versions:
+        with resources.as_file(resources.files("sdhdf.data.tests")) as test_data:
+            fname = f"sdhdf_v{version}.hdf"
+            file_path = test_data / fname
+
+        my_sdhdf = SDHDF(file_path)
+
+        expected_version = str(version)
+        if float(version[:3]) < 2.0:
+            expected_version = str(2.0)
+        elif float(version[:3]) == 2.2:
+            expected_version = str(2.9)
+        assert str(my_sdhdf.metadata.version) == expected_version, (
+            f"Version mismatch for {fname}"
+        )
