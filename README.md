@@ -17,14 +17,10 @@
 [codecov-badge]:            https://codecov.io/gh/AlecThomson/pyINSPECTA/graph/badge.svg?token=7EARBRN20D
 [actions-badge]:            https://github.com/AlecThomson/pyINSPECTA/actions/workflows/ci.yml/badge.svg
 [actions-link]:             https://github.com/AlecThomson/pyINSPECTA/actions
-[conda-badge]:              https://img.shields.io/conda/vn/conda-forge/sdhdf
-[conda-link]:               https://github.com/conda-forge/sdhdf-feedstock
-[github-discussions-badge]: https://img.shields.io/static/v1?label=Discussions&message=Ask&color=blue&logo=github
-[github-discussions-link]:  https://github.com/AlecThomson/pyINSPECTA/discussions
 [pypi-link]:                https://pypi.org/project/sdhdf/
 [pypi-platforms]:           https://img.shields.io/pypi/pyversions/sdhdf
 [pypi-version]:             https://img.shields.io/pypi/v/sdhdf
-[rtd-badge]:                https://readthedocs.org/projects/sdhdf/badge/?version=latest
+[rtd-badge]:                https://readthedocs.org/projects/pyinspecta/badge/?version=latest
 [rtd-link]:                 https://pyinspecta.readthedocs.io/en/latest/?badge=latest
 
 
