@@ -45,6 +45,7 @@ dependencies = [
     "tabulate",
     "dask",
     "distributed",
+    "tqdm",
 ]
 
 [project.optional-dependencies]
