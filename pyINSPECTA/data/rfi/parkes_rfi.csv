@@ -1,0 +1,43 @@
+
+#
+# Each line first starts with a <type> integer value
+# If type = 1 the line is
+# <type> <observatory label> <receiver label> <freq0 MHz> <freq1 MHz> <MJD0> <MJD1> <text string for label>
+#
+#
+# For the <receiver label> if the RFI is present in all receiver systems then the receiver label can be "all"
+#
+#
+# Parkes RFI
+#
+1,Parkes,all,754,768,0,999999,Optus transmission tower (note from 754-758 we have out-of-band signals)
+1,Parkes,all,768,788,0,999999,Telstra transmission tower
+1,Parkes,all,869.95,875.05,0,999999,Vodafone transmission tower
+1,Parkes,all,875.05,889.95,0,999999,Telstra transmission tower
+1,Parkes,all,943.4,951.8,0,999999,Optus transmission tower
+1,Parkes,all,953.7,960,0,999999,Vodafone transmission tower (should be to 958.7)
+1,Parkes,all,1017,1019,0,999999,Parkes airport
+1,Parkes,UWL,1023,1025,0,999999,Digitiser related signal always present
+1,Parkes,all,1029,1031,0,999999,Parkes airport
+1,Parkes,UWL,1081.7,1088,0,999999,Aliased signal (should be to 1086.7?)
+1,Parkes,UWL,1720,1736.2,0,999999,Aliased signal
+1,Parkes,all,1805,1825,0,999999,Telstra transmission tower
+1,Parkes,all,1824,1845,58000,999999,Transmission tower -- CHECK WHEN SWITCHED ON
+1,Parkes,all,1845,1865,0,999999,Optus transmission tower
+1,Parkes,UWL,1919.9,1920.1,0,999999,Digitiser related signal always present
+1,Parkes,UWL,1973.7,1991.0 ,0,999999,Aliased signal
+1,Parkes,UWL,2047.99,2048.01,0,999999,Digitiser related signal always present
+1,Parkes,all,2155,2165,58000,999999,Transmission tower -- CHECK WHEN SWITCHED ON
+1,Parkes,all,2164.9,2170.1 ,0,999999,Vodafone transmission tower
+1,Parkes,all,2302.05,2321.95,0,999999,NBN
+1,Parkes,all,2322.05,2341.95,0,999999,NBN
+1,Parkes,all,2342.05,2361.95,0,999999,NBN
+1,Parkes,all,2362.05,2381.95,0,999999,NBN
+1,Parkes,UWL,2487,2496,0,999999,Aliased signal
+1,Parkes,UWL,2559.99,2560.01,0,999999,Digitiser related signal always present
+1,Parkes,all,2630,2670,58000,999999,Transmission tower -- CHECK WHEN SWITCHED ON
+1,Parkes,all,2670,2690,0,999999,Optus transmission tower
+1,Parkes,UWL,3071.9,3072.05,0,999999,Digitiser related signal always present
+1,Parkes,all,3445.05,3464.95,0,999999,NBN
+1,Parkes,all,3550.05,3569.95,0,999999,NBN
+1,Parkes,all,3575,3640,59000,999999,Transmission tower -- CHECK WHEN SWITCHED ON Authorised on 31/Aug/2020

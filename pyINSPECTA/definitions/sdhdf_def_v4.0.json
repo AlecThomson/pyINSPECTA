@@ -1,0 +1,72 @@
+{
+    "version": "4.0",
+    "beam": {
+	    "attributes": {
+            "DESCRIPTION": "SDHDF group containing data products specific to the antenna beam",
+	        "NAME": "beam",
+	        "SDHDF_CLASS": "sdhdf_beam"
+	    },
+        "metadata": {
+	        "attributes": {
+            	"DESCRIPTION": "SDHDF group containing observation metadata",
+	    	    "NAME": "metadata",
+	    	    "SDHDF_CLASS": "sdhdf_meta"
+            },
+            "band_params": "metadata/band_parameters",
+            "cal_band_params": "metadata/calibrator_band_parameters"
+	    },
+        "band": {
+	        "attributes": {
+                "DESCRIPTION": "SDHDF group containing data products specific to the frequency band",
+	            "NAME": "band",
+	            "SDHDF_CLASS": "sdhdf_band"
+	        },
+            "astronomy": {
+                "data": "astronomy_data/data",
+                "weights": "astronomy_data/weights",
+                "flags": "astronomy_data/flags",
+                "frequency": "astronomy_data/frequency"
+            },
+            "calibrator": {
+                "cal_binned": "calibrator_data/calibrator_data_binned",
+                "cal_on": "calibrator_data/calibrator_data_on",
+                "cal_off": "calibrator_data/calibrator_data_off",
+                "weights": "calibrator_data/weights",
+                "flags": "calibrator_data/flags",
+                "frequency": "calibrator_data/frequency"
+            },
+	        "metadata": {
+	            "attributes": {
+                    "DESCRIPTION": "SDHDF group containing observation metadata",
+	    	        "NAME": "metadata",
+	    	        "SDHDF_CLASS": "sdhdf_meta"
+                },
+	            "obs_params": "metadata/observation_parameters",
+	            "cal_obs_params": "metadata/calibrator_observation_parameters"
+	        }
+        }
+    },
+    "configuration": {
+	    "attributes": {
+            "DESCRIPTION": "SDHDF group containing configuration parameters as defined at the time of the observation",
+	        "NAME": "configuration",
+	        "SDHDF_CLASS": "sdhdf_configuration"
+	    },
+        "backend": "configuration/instrument_configuration",
+        "cal_backend": "configuration/instrument_configuration",
+        "receiver": "configuration/receiver_configuration",
+        "telescope": "configuration/telescope_configuration"
+    },
+    "metadata": {
+	    "attributes": {
+            "DESCRIPTION": "SDHDF group containing observation metadata",
+	        "NAME": "metadata",
+	        "SDHDF_CLASS": "sdhdf_meta"
+	    },
+        "beam_params": "metadata/beam_parameters",
+        "history": "metadata/history",
+        "primary_header": "metadata/primary_header",
+        "schedule": "metadata/schedule",
+        "software": "metadata/software_versions"
+    }
+}

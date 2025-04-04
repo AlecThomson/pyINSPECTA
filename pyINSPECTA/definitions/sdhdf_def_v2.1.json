@@ -1,0 +1,69 @@
+{
+    "version": "2.1",
+    "beam": {
+		"attributes": {
+            "DESCRIPTION": "SDHDF group containing data products specific to the antenna beam",
+	    	"NAME": "beam",
+	    	"SDHDF_CLASS": "sdhdf_beam"
+		},
+        "metadata": {
+			"attributes": {
+				"DESCRIPTION": "SDHDF group containing observation metadata",
+				"NAME": "metadata",
+				"SDHDF_CLASS": "sdhdf_meta"
+			},
+			"band_params": "metadata/band_params",
+			"cal_band_params": "metadata/cal_band_params"
+		},
+    	"band": {
+			"attributes": {
+				"DESCRIPTION": "SDHDF group containing data products specific to the frequency band",
+				"NAME": "band",
+				"SDHDF_CLASS": "sdhdf_band"
+			},
+			"astronomy": {
+				"data": "astronomy_data/data",
+				"weights": "astronomy_data/data_weights",
+				"flags": "astronomy_data/data_flags",
+				"frequency": "astronomy_data/frequency"
+			},
+			"calibrator": {
+				"cal_binned": "calibrator_data/cal32_data",
+				"cal_on": "calibrator_data/cal_data_on",
+				"cal_off": "calibrator_data/cal_data_off",
+				"weights": "calibrator_data/cal_data_weights",
+				"flags": "calibrator_data/cal_data_flags",
+				"frequency": "calibrator_data/cal_frequency"
+			},
+			"metadata": {
+				"attributes": {
+					"DESCRIPTION": "SDHDF group containing observation metadata",
+					"NAME": "metadata",
+					"SDHDF_CLASS": "sdhdf_meta"
+				},
+				"obs_params": "metadata/obs_params",
+				"cal_obs_params": "metadata/cal_obs_params"
+			}
+		}
+    },
+    "config": {
+		"attributes": {
+            "DESCRIPTION": "SDHDF group containing configuration parameters as defined at the time of the observation",
+	    	"NAME": "config",
+	    	"SDHDF_CLASS": "sdhdf_config"
+		},
+        "backend": "config/backend_config",
+        "cal_backend": "config/cal_backend_config"
+    },
+    "metadata": {
+		"attributes": {
+            "DESCRIPTION": "SDHDF group containing observation metadata",
+	    	"NAME": "metadata",
+	    	"SDHDF_CLASS": "sdhdf_meta"
+		},
+        "beam_params": "metadata/beam_params",
+        "history": "metadata/history",
+        "primary_header": "metadata/primary_header",
+        "software": "metadata/software_versions"
+    }
+}
