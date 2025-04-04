@@ -163,3 +163,7 @@ Thumbs.db
 
 # version file
 pyINSPECTA/_version.py
+docs/examples/demo.rst
+docs/examples/output_30_0.png
+docs/examples/output_32_0.png
+docs/examples/output_35_0.png
