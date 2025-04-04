@@ -1,15 +1,20 @@
-
+==========================================
 pyINSPECTA
 ==========================================
 
-.. mdinclude:: ../README.md
+Python tooliong for reading, interactive with, and writing SDHDF files.
+
+Contents
+==========================================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+    :maxdepth: 1
 
-   examples/demo
+    usage
 
+.. include:: ../README.md
+    :parser: myst_parser.sphinx_
+    :start-after: <!-- SPHINX-START -->
 
 
 Indices and tables
