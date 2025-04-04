@@ -57,6 +57,8 @@ dev = [
     "nbconvert >=7.2",
     "sphinx-autoapi >=2",
     "nox",
+    "pytest >=6",
+    "pytest-cov >=3",
 ]
 
 [tool.hatch]
