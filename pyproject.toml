@@ -67,6 +67,7 @@ dev = [
     "sphinx_autodoc_typehints",
     "jupyter",
     "ipykernel",
+    "ipython",
 ]
 
 [tool.hatch]
