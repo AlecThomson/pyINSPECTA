@@ -47,18 +47,28 @@ pip install sdhdf
 Latest version from git:
 
 ```bash
-git clone https://bitbucket.csiro.au/scm/cpda/sdhdf_tools.git
-cd sdhdf_tools/python
+git https://github.com/AlecThomson/pyINSPECTA.git
+cd pyINSPECTA
 pip install -e .
 ```
+
+## Usage
+
+```python
+from sdhdf import SDHDF
+
+my_sdhdf = SDHDF("myfile.hdf")
+```
+
+Full documentation on [Read the Docs](https://pyinspecta.readthedocs.io/en/latest/).
 
 ## Contributing
 
 Contributions are welcome! Please be sure to install the developer tools and pre-commit hooks:
 
 ```bash
-git clone https://bitbucket.csiro.au/scm/cpda/sdhdf_tools.git
-cd sdhdf_tools/python
+git https://github.com/AlecThomson/pyINSPECTA.git
+cd pyINSPECTA
 pip install -e .[dev]
 pre-commit install
 ```
