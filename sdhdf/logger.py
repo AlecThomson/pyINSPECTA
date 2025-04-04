@@ -1,11 +1,11 @@
-"""Logging module for pyINSPECTA"""
+"""Logging module for sdhdf"""
 
 from __future__ import annotations
 
 import logging
 
 # Create logger
-logger = logging.getLogger("pyINSPECTA")
+logger = logging.getLogger("sdhdf")
 logger.setLevel(logging.INFO)
 
 # Create console handler and set level to debug

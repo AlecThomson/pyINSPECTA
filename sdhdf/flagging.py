@@ -21,7 +21,7 @@ def get_persistent_rfi(telescope: str = "Parkes") -> pd.DataFrame:
     Returns:
         pd.Dataframe: Persistent RFI data.
     """
-    with resources.as_file(resources.files("pyINSPECTA.data.rfi")) as rfi_dir:
+    with resources.as_file(resources.files("sdhdf.data.rfi")) as rfi_dir:
         rfi_file = rfi_dir / f"{telescope.lower()}_rfi.csv"
 
     if not rfi_file.exists():

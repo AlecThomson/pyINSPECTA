@@ -1,5 +1,5 @@
 ==========================================
-pyINSPECTA
+sdhdf
 ==========================================
 
 Python tooliong for reading, interactive with, and writing SDHDF files.

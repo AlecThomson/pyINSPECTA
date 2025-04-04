@@ -162,6 +162,6 @@ Thumbs.db
 .idea
 
 # version file
-pyINSPECTA/_version.py
+sdhdf/_version.py
 docs/examples/demo.rst
 docs/examples/output_*

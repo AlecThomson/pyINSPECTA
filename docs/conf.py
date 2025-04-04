@@ -36,7 +36,7 @@ for key, val in resources["outputs"].items():
 
 # -- Project information -----------------------------------------------------
 
-project = "pyINSPECTA"
+project = "sdhdf"
 copyright = "2023, CSIRO"
 author = "Lawrence Toomey, George Hobbs, Alec Thomson"
 
@@ -61,7 +61,7 @@ extensions = [
 ]
 
 autoapi_type = "python"
-autoapi_dirs = ["../pyINSPECTA"]
+autoapi_dirs = ["../sdhdf"]
 autoapi_member_order = "groupwise"
 autoapi_keep_files = False
 autoapi_root = "autoapi"

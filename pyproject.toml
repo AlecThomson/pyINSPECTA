@@ -71,7 +71,7 @@ dev = [
 
 [tool.hatch]
 version.source = "vcs"
-build.hooks.vcs.version-file = "pyINSPECTA/_version.py"
+build.hooks.vcs.version-file = "sdhdf/_version.py"
 
 [project.urls]
 Homepage = "https://bitbucket.csiro.au/projects/CPDA/repos/sdhdf_tools/browse"

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import importlib.metadata
 
-import pyINSPECTA as m
+import sdhdf as m
 
 
 def test_version():
-    assert importlib.metadata.version("pyINSPECTA") == m.__version__
+    assert importlib.metadata.version("sdhdf") == m.__version__

@@ -20,9 +20,9 @@ from dask.distributed import Client
 from tqdm.auto import tqdm
 from xarray import DataArray, Dataset, Variable
 
-from pyINSPECTA import flagging, history
-from pyINSPECTA.logger import logger
-from pyINSPECTA.tables import SDHDFTable
+from sdhdf import flagging, history
+from sdhdf.logger import logger
+from sdhdf.tables import SDHDFTable
 
 
 def _get_sdhdf_version(filename: Path) -> tuple[float, Path]:
@@ -60,7 +60,7 @@ def _get_sdhdf_version(filename: Path) -> tuple[float, Path]:
             version = 2.9
 
         try:
-            with resources.path("pyINSPECTA", "definitions") as definition_dir:
+            with resources.path("sdhdf", "definitions") as definition_dir:
                 definition_file = definition_dir / f"sdhdf_def_v{version}.json"
         except ValueError as e:
             msg = f"SDHDF definition template {definition_file} not found."
