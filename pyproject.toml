@@ -60,6 +60,13 @@ dev = [
     "nox",
     "pytest >=6",
     "pytest-cov >=3",
+    "sphinx-argparse",
+    "furo",
+    "nbsphinx",
+    "myst_parser",
+    "sphinx_autodoc_typehints",
+    "jupyter",
+    "ipykernel",
 ]
 
 [tool.hatch]

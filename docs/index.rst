@@ -1,15 +1,16 @@
-
+==========================================
 pyINSPECTA
 ==========================================
 
-.. mdinclude:: ../README.md
-
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+    :maxdepth: 1
+    :caption: Contents:
 
-   examples/demo
+    usage
 
+.. include:: ../README.md
+    :parser: myst_parser.sphinx_
+    :start-after: <!-- SPHINX-START -->
 
 
 Indices and tables
