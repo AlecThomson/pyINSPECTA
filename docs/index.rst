@@ -2,9 +2,13 @@
 pyINSPECTA
 ==========================================
 
+Python tooliong for reading, interactive with, and writing SDHDF files.
+
+Contents
+==========================================
+
 .. toctree::
     :maxdepth: 1
-    :caption: Contents:
 
     usage
 
