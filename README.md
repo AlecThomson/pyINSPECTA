@@ -1,4 +1,4 @@
-# pyINSPECTA
+# sdhdf
 
 [![Actions Status][actions-badge]][actions-link]
 [![Codecov Status][codecov-badge]][codecov-link]
@@ -14,19 +14,19 @@
 
 
 <!-- prettier-ignore-start -->
-[codecov-link]:             https://codecov.io/gh/AlecThomson/pyINSPECTA
-[codecov-badge]:            https://codecov.io/gh/AlecThomson/pyINSPECTA/graph/badge.svg?token=7EARBRN20D
-[actions-badge]:            https://github.com/AlecThomson/pyINSPECTA/workflows/CI/badge.svg
-[actions-link]:             https://github.com/AlecThomson/pyINSPECTA/actions
-[conda-badge]:              https://img.shields.io/conda/vn/conda-forge/pyINSPECTA
-[conda-link]:               https://github.com/conda-forge/pyINSPECTA-feedstock
+[codecov-link]:             https://codecov.io/gh/AlecThomson/sdhdf
+[codecov-badge]:            https://codecov.io/gh/AlecThomson/sdhdf/graph/badge.svg?token=7EARBRN20D
+[actions-badge]:            https://github.com/AlecThomson/sdhdf/workflows/CI/badge.svg
+[actions-link]:             https://github.com/AlecThomson/sdhdf/actions
+[conda-badge]:              https://img.shields.io/conda/vn/conda-forge/sdhdf
+[conda-link]:               https://github.com/conda-forge/sdhdf-feedstock
 [github-discussions-badge]: https://img.shields.io/static/v1?label=Discussions&message=Ask&color=blue&logo=github
-[github-discussions-link]:  https://github.com/AlecThomson/pyINSPECTA/discussions
-[pypi-link]:                https://pypi.org/project/pyINSPECTA/
-[pypi-platforms]:           https://img.shields.io/pypi/pyversions/pyINSPECTA
-[pypi-version]:             https://img.shields.io/pypi/v/pyINSPECTA
-[rtd-badge]:                https://readthedocs.org/projects/pyINSPECTA/badge/?version=latest
-[rtd-link]:                 https://pyinspecta.readthedocs.io/en/latest/?badge=latest
+[github-discussions-link]:  https://github.com/AlecThomson/sdhdf/discussions
+[pypi-link]:                https://pypi.org/project/sdhdf/
+[pypi-platforms]:           https://img.shields.io/pypi/pyversions/sdhdf
+[pypi-version]:             https://img.shields.io/pypi/v/sdhdf
+[rtd-badge]:                https://readthedocs.org/projects/sdhdf/badge/?version=latest
+[rtd-link]:                 https://sdhdf.readthedocs.io/en/latest/?badge=latest
 
 
 <!-- prettier-ignore-end -->
@@ -47,18 +47,28 @@ pip install sdhdf
 Latest version from git:
 
 ```bash
-git clone https://bitbucket.csiro.au/scm/cpda/sdhdf_tools.git
-cd sdhdf_tools/python
+git https://github.com/AlecThomson/pyINSPECTA.git
+cd pyINSPECTA
 pip install -e .
 ```
+
+## Usage
+
+```python
+from sdhdf import SDHDF
+
+my_sdhdf = SDHDF("myfile.hdf")
+```
+
+Full documentation on [Read the Docs](https://pyinspecta.readthedocs.io/en/latest/).
 
 ## Contributing
 
 Contributions are welcome! Please be sure to install the developer tools and pre-commit hooks:
 
 ```bash
-git clone https://bitbucket.csiro.au/scm/cpda/sdhdf_tools.git
-cd sdhdf_tools/python
+git https://github.com/AlecThomson/pyINSPECTA.git
+cd pyINSPECTA
 pip install -e .[dev]
 pre-commit install
 ```

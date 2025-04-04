@@ -3,7 +3,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pyINSPECTA"
+name = "sdhdf"
 dynamic = ["version"]
 description = "A collection of tools for interrogating Spectral-Domain Hierarchical Data Format (SDHDF) files"
 authors = [
@@ -71,7 +71,7 @@ dev = [
 
 [tool.hatch]
 version.source = "vcs"
-build.hooks.vcs.version-file = "pyINSPECTA/_version.py"
+build.hooks.vcs.version-file = "sdhdf/_version.py"
 
 [project.urls]
 Homepage = "https://bitbucket.csiro.au/projects/CPDA/repos/sdhdf_tools/browse"
