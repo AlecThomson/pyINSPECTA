@@ -160,3 +160,51 @@ def test_damaged_upgrade(damaged_v4, tmp_path):
         upgraded.subbands[0].astronomy_dataset["data"].to_numpy(),
         SDHDF(damaged_v4).subbands[0].astronomy_dataset["data"].to_numpy(),
     )
+
+
+def _key_by_description(obj):
+    """Mimic INSPECTA writing attributes keyed by their description."""
+    for key in list(obj.attrs):
+        value = obj.attrs[key]
+        if (
+            isinstance(value, np.ndarray)
+            and value.dtype.names
+            and "description" in value.dtype.names
+        ):
+            description = value[0]["description"].decode()
+            del obj.attrs[key]
+            obj.attrs[description] = np.bytes_(value[0]["value"])
+    if "DIMENSION_LABELS" in obj.attrs:
+        del obj.attrs["DIMENSION_LABELS"]
+
+
+def test_description_keyed_attributes(copy_of):
+    """Attributes keyed by description are renamed; labels are rebuilt."""
+    path = copy_of("sdhdf_v4.0.hdf")
+    with h5py.File(path, "r+") as h5:
+        data = h5["beam_00/band_SB0/astronomy_data/data"]
+        unit = data.attrs["UNIT"].copy()
+        unit[0]["value"] = b"Jy"
+        data.attrs["UNIT"] = unit
+        for key, description, value in (
+            ("TIME", "Integrations, data array dimension 0", "time"),
+            ("PRODUCT_TYPE", "Product type, data array dimension 1", "polarisation"),
+            ("FREQUENCY", "Frequency, data array dimension 2", "frequency"),
+            ("PHASE_BIN", "Phase bins, data array dimension 3", "bin"),
+        ):
+            data.attrs[key] = np.array(
+                [(description.encode(), b"None", value.encode())],
+                dtype=[("description", "S40"), ("unit", "S4"), ("value", "S12")],
+            )
+        h5.visititems(lambda _, obj: _key_by_description(obj))
+        assert "UNIT" not in data.attrs
+
+    from sdhdf._attrs import decode_attrs  # noqa: PLC0415
+
+    with h5py.File(path) as h5:
+        attrs = decode_attrs(h5["beam_00/band_SB0/astronomy_data/data"].attrs)
+    assert attrs["UNIT"] == "Jy"
+    assert attrs["DIMENSION_LABELS"] == ["time", "polarisation", "frequency", "bin"]
+    ds = SDHDF(path).subbands[0].astronomy_dataset
+    assert ds["data"].attrs["units"] == "Jy"
+    assert ds["data"].dims == DATA_DIMS

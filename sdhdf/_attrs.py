@@ -123,8 +123,58 @@ def attr_unit(value: Any) -> str | None:
     return None
 
 
+#: SDHDF 4.0 attribute descriptions (lower case prefixes) and their keys. Some
+#: versions of INSPECTA write attributes keyed by their description.
+_DESCRIPTION_KEYS = (
+    ("data unit", "UNIT"),
+    ("sdhdf class name", "SDHDF_CLASS"),
+    ("sdhdf object description", "SDHDF_DESCRIPTION"),
+    ("data description", "DATA_DESCRIPTION"),
+    ("data type", "DATA_TYPE"),
+    ("number of phase bins", "NUMBER_OF_BINS"),
+    ("number of frequency channels", "NUMBER_OF_CHANNELS"),
+    ("the factor by which", "NORMALISATION_FACTOR"),
+    ("type of flagging method", "FLAG_TYPE"),
+    ("type of weighting method", "WEIGHT_TYPE"),
+    ("spectral reference frame", "FRAME"),
+    ("integrations, data array dimension", "TIME"),
+    ("frequency, data array dimension", "FREQUENCY"),
+    ("product type, data array dimension", "PRODUCT_TYPE"),
+    ("phase bins, data array dimension", "PHASE_BIN"),
+    ("file format definition version", "HEADER_DEFINITION_VERSION"),
+)
+
+_DIMENSION_RE = re.compile(r"data array dimension\s*(\d+)", re.IGNORECASE)
+
+
+def key_from_description(text: str) -> str | None:
+    """Return the attribute key whose SDHDF 4.0 description starts ``text``."""
+    lowered = text.strip().lower()
+    for prefix, key in _DESCRIPTION_KEYS:
+        if lowered.startswith(prefix):
+            return key
+    return None
+
+
+def _attr_description(key: str, raw: Any) -> str:
+    """Description of an attribute: its compound field, or the key itself."""
+    if (
+        isinstance(raw, np.ndarray)
+        and raw.dtype.names
+        and "description" in raw.dtype.names
+    ):
+        return str(decode_str(raw.reshape(-1)[0]["description"]) or "")
+    return key
+
+
 def decode_attrs(attrs: h5py.AttributeManager | dict) -> dict[str, Any]:
-    """Decode all attributes of an HDF5 object, dropping damaged entries.
+    """Decode all attributes of an HDF5 object, repairing damaged entries.
+
+    Attributes keyed by their SDHDF 4.0 description (as written by some
+    versions of INSPECTA) are renamed to their proper keys, and
+    ``DIMENSION_LABELS`` is reconstructed from the per-dimension attributes
+    (``TIME``, ``PRODUCT_TYPE``, ``FREQUENCY``, ``PHASE_BIN``) when it is
+    missing or unusable.
 
     Args:
         attrs (h5py.AttributeManager | dict): Attributes to decode.
@@ -134,6 +184,8 @@ def decode_attrs(attrs: h5py.AttributeManager | dict) -> dict[str, Any]:
             ``None``. HDF5 dimension-scale bookkeeping is dropped.
     """
     out: dict[str, Any] = {}
+    renamed: dict[str, Any] = {}
+    dimensions: dict[int, Any] = {}
     for key in attrs:
         if key in ("DIMENSION_LIST", "REFERENCE_LIST") or is_placeholder(key):
             continue
@@ -142,7 +194,23 @@ def decode_attrs(attrs: h5py.AttributeManager | dict) -> dict[str, Any]:
         except (OSError, TypeError, KeyError):  # unreadable/damaged attribute
             out[key] = None
             continue
-        out[key] = decode_attr(raw)
+        value = decode_attr(raw)
+        if match := _DIMENSION_RE.search(_attr_description(key, raw)):
+            dimensions[int(match.group(1))] = value
+        canonical = key_from_description(key) if " " in key else None
+        if canonical is not None:
+            renamed[canonical] = value
+        else:
+            out[key] = value
+    for key, value in renamed.items():
+        out.setdefault(key, value)
+    labels = [dimensions.get(i) for i in range(len(dimensions))]
+    if (
+        get_str_list(out, "DIMENSION_LABELS") is None
+        and labels
+        and not any(is_placeholder(v) for v in labels)
+    ):
+        out["DIMENSION_LABELS"] = [str(v) for v in labels]
     return out
 
 

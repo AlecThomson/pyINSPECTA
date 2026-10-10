@@ -173,16 +173,52 @@ def _to_4d(arr: xr.DataArray, rename_bin: str | None = None) -> xr.DataArray:
     return arr.transpose(*DATA_DIMS)
 
 
+#: Columns of observation_parameters that readers (e.g. INSPECTA) require,
+#: with the fill value used when a file does not record them.
+REQUIRED_OBS_COLUMNS: dict[str, float | str] = {
+    "ELAPSED_TIME": np.nan,
+    "INTEGRATION_TIME": np.nan,
+    "MJD": 0,
+    "FRACTIONAL_MJD": np.nan,
+    "UTC": "None",
+    "LOCAL_TIME": "None",
+    "RIGHT_ASCENSION": "None",
+    "DECLINATION": "None",
+    "GALACTIC_LONGITUDE": np.nan,
+    "GALACTIC_LATITUDE": np.nan,
+    "AZIMUTH_ANGLE": np.nan,
+    "ZENITH_ANGLE": np.nan,
+    "ELEVATION_ANGLE": np.nan,
+    "HOUR_ANGLE": np.nan,
+    "PARALLACTIC_ANGLE": np.nan,
+    "WIND_DIRECTION": np.nan,
+    "WIND_SPEED": np.nan,
+}
+
+
 def _obs_table(ds: xr.Dataset) -> pd.DataFrame:
-    """Rebuild an observation_parameters table from the time coordinates."""
+    """Rebuild an observation_parameters table from the time coordinates.
+
+    Every column in :data:`REQUIRED_OBS_COLUMNS` is present, filled with a
+    placeholder where the data do not record it.
+    """
+    n_time = ds.sizes["time"]
     columns = {
         name: np.asarray(coord.to_numpy())
         for name, coord in ds.coords.items()
         if coord.dims == ("time",) and name != "time"
     }
-    if not columns:
-        return pd.DataFrame({"MJD": np.floor(ds["time"].to_numpy()).astype(np.int64)})
-    return pd.DataFrame(columns)
+    if "MJD" not in columns:
+        mjd = ds["time"].to_numpy().astype(float)
+        columns["MJD"] = np.floor(mjd).astype(np.int64)
+        columns["FRACTIONAL_MJD"] = mjd - np.floor(mjd)
+    for name, fill in REQUIRED_OBS_COLUMNS.items():
+        if name not in columns:
+            columns[name] = np.full(
+                n_time, fill, dtype=object if isinstance(fill, str) else float
+            )
+    ordered = [c for c in REQUIRED_OBS_COLUMNS if c in columns]
+    return pd.DataFrame(columns)[ordered + [c for c in columns if c not in ordered]]
 
 
 def _write_dataset_group(
@@ -226,6 +262,13 @@ def _write_dataset_group(
         },
     )
 
+    for var in ("flags", "weights"):
+        extra = [d for d in ds[var].dims if d not in ("time", "frequency")]
+        if extra:
+            logger.warning(
+                f"Writing {var} with dimensions {extra}; INSPECTA can only read "
+                f"{var} with one value per integration and channel."
+            )
     flags = _store(group, "flags", _to_4d(ds["flags"]), np.uint8)
     _set_class(flags, "flags", "Flags dataset")
     _set_attrs(flags, {"FLAG_TYPE": "0=not flagged, 1=flagged"})
