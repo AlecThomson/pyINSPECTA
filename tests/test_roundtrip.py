@@ -10,7 +10,7 @@ from conftest import data_path
 from sdhdf import SDHDF, upgrade
 
 
-def _assert_same(a, b):
+def assert_same_dataset(a, b):
     for var in a.data_vars:
         np.testing.assert_array_equal(
             a[var].to_numpy(), b[var].transpose(*a[var].dims).to_numpy(), err_msg=var
@@ -34,9 +34,9 @@ def test_upgrade_roundtrip(any_file, tmp_path):
     assert set(original.metadata.tables) <= set(upgraded.metadata.tables)
     assert len(upgraded.history) == len(original.history) + 2  # upgrade + write
     for a, b in zip(original.subbands, upgraded.subbands, strict=True):
-        _assert_same(a.astronomy_dataset, b.astronomy_dataset)
+        assert_same_dataset(a.astronomy_dataset, b.astronomy_dataset)
         if a.calibrator_dataset is not None:
-            _assert_same(a.calibrator_dataset, b.calibrator_dataset)
+            assert_same_dataset(a.calibrator_dataset, b.calibrator_dataset)
 
 
 def test_written_layout_is_v4(tmp_path):
@@ -80,7 +80,7 @@ def test_processed_file_roundtrip(tmp_path):
     out = tmp_path / "processed.hdf"
     sdhdf.write(out)
     written = SDHDF(out)
-    _assert_same(
+    assert_same_dataset(
         sdhdf.subbands[0].astronomy_dataset, written.subbands[0].astronomy_dataset
     )
     row = written.beams[0].band_parameters.table.iloc[0]
@@ -102,7 +102,7 @@ def test_cli_upgrade(tmp_path):
 
 def test_observation_parameters_complete(tmp_path):
     """Written observation_parameters always have the columns INSPECTA reads."""
-    from sdhdf.writer import REQUIRED_OBS_COLUMNS  # noqa: PLC0415
+    from sdhdf.constants import REQUIRED_OBS_COLUMNS  # noqa: PLC0415
 
     out = tmp_path / "template.hdf"
     upgrade(data_path("sdhdf_template_v4.0.hdf"), out)  # template table is empty

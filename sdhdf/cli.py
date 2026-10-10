@@ -5,8 +5,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from sdhdf.constants import LATEST_VERSION
 from sdhdf.logger import set_verbosity
-from sdhdf.schema import LATEST_VERSION
 from sdhdf.sdhdf import upgrade
 
 

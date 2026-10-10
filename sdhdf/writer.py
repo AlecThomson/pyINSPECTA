@@ -22,41 +22,11 @@ import xarray as xr
 
 from sdhdf import history
 from sdhdf._version import version as __version__
+from sdhdf.constants import DATA_DIMS, LATEST_VERSION, REQUIRED_OBS_COLUMNS, V4_PATHS
 from sdhdf.logger import logger
-from sdhdf.schema import DATA_DIMS, LATEST_VERSION, V4_PATHS
 
 if TYPE_CHECKING:
     from sdhdf.sdhdf import SDHDF, Beam, SubBand
-
-_CLASSES = {
-    "file": "sdhdf_file",
-    "beam": "sdhdf_beam",
-    "band": "sdhdf_band",
-    "group": "sdhdf_meta",
-    "data": "sdhdf_data",
-    "waterfall": "sdhdf_waterfall",
-    "flags": "sdhdf_flags",
-    "weights": "sdhdf_weights",
-    "frequency": "sdhdf_frequency",
-    "table": "sdhdf_table",
-    "configuration": "sdhdf_configuration",
-}
-
-_TABLE_DESCRIPTIONS = {
-    "primary_header": "General observation metadata",
-    "beam_parameters": "Metadata specific to the antenna beam",
-    "history": "Metadata specific to the processing history of the file",
-    "schedule": "Metadata specific to the scheduling of the observation",
-    "software_versions": "Metadata specific to software packages used for creating or processing the file",
-    "band_parameters": "Metadata specific to the frequency bands of the antenna beam",
-    "calibrator_band_parameters": "Metadata specific to the frequency bands of the antenna beam",
-    "observation_parameters": "Metadata specific to the observation integrations",
-    "calibrator_observation_parameters": "Metadata specific to the observation integrations",
-    "instrument_configuration": "Digital backend instrument configuration",
-    "calibrator_instrument_configuration": "Digital backend instrument configuration (calibrator)",
-    "receiver_configuration": "Receiver instrument configuration",
-    "telescope_configuration": "Telescope configuration",
-}
 
 
 def compound_attr(
@@ -88,14 +58,14 @@ def _set_attrs(
         obj.attrs[key] = compound_attr(text, description=key, unit=units.get(key))
 
 
-def _set_class(obj: h5py.HLObject, kind: str, description: str) -> None:
-    obj.attrs["SDHDF_CLASS"] = compound_attr(_CLASSES[kind], "SDHDF class name")
+def _set_class(obj: h5py.HLObject, sdhdf_class: str, description: str) -> None:
+    obj.attrs["SDHDF_CLASS"] = compound_attr(sdhdf_class, "SDHDF class name")
     obj.attrs["SDHDF_DESCRIPTION"] = compound_attr(
         description, "SDHDF object description"
     )
 
 
-def _to_records(frame: pd.DataFrame) -> np.ndarray:
+def to_records(frame: pd.DataFrame) -> np.ndarray:
     """Convert a DataFrame to a numpy structured array for HDF5."""
     if frame.shape[1] == 0:
         return np.zeros(len(frame), dtype=[("EMPTY", "S1")])
@@ -131,15 +101,31 @@ def _to_records(frame: pd.DataFrame) -> np.ndarray:
     return records
 
 
-def _write_table(
+def write_table(
     group: h5py.Group,
     name: str,
     frame: pd.DataFrame,
     units: dict[str, str] | None = None,
     attrs: dict[str, Any] | None = None,
 ) -> None:
-    dset = group.create_dataset(name, data=_to_records(frame))
-    _set_class(dset, "table", _TABLE_DESCRIPTIONS.get(name, name))
+    """Write a metadata table as an SDHDF 4.0 compound dataset."""
+    descriptions = {
+        "primary_header": "General observation metadata",
+        "beam_parameters": "Metadata specific to the antenna beam",
+        "history": "Metadata specific to the processing history of the file",
+        "schedule": "Metadata specific to the scheduling of the observation",
+        "software_versions": "Metadata specific to software packages used for creating or processing the file",
+        "band_parameters": "Metadata specific to the frequency bands of the antenna beam",
+        "calibrator_band_parameters": "Metadata specific to the frequency bands of the antenna beam",
+        "observation_parameters": "Metadata specific to the observation integrations",
+        "calibrator_observation_parameters": "Metadata specific to the observation integrations",
+        "instrument_configuration": "Digital backend instrument configuration",
+        "calibrator_instrument_configuration": "Digital backend instrument configuration (calibrator)",
+        "receiver_configuration": "Receiver instrument configuration",
+        "telescope_configuration": "Telescope configuration",
+    }
+    dset = group.create_dataset(name, data=to_records(frame))
+    _set_class(dset, "sdhdf_table", descriptions.get(name, name))
     units = units or {}
     for col in frame.columns:
         dset.attrs[str(col)] = compound_attr(
@@ -150,7 +136,8 @@ def _write_table(
             dset.attrs[key] = compound_attr(value, description=key)
 
 
-def _store(group: h5py.Group, name: str, arr: xr.DataArray, dtype) -> h5py.Dataset:
+def write_array(group: h5py.Group, name: str, arr: xr.DataArray, dtype) -> h5py.Dataset:
+    """Write a DataArray to a new dataset, streaming dask arrays chunk by chunk."""
     data = arr.data
     dset = group.create_dataset(
         name, shape=arr.shape, dtype=dtype, chunks=True if arr.size else None
@@ -173,30 +160,7 @@ def _to_4d(arr: xr.DataArray, rename_bin: str | None = None) -> xr.DataArray:
     return arr.transpose(*DATA_DIMS)
 
 
-#: Columns of observation_parameters that readers (e.g. INSPECTA) require,
-#: with the fill value used when a file does not record them.
-REQUIRED_OBS_COLUMNS: dict[str, float | str] = {
-    "ELAPSED_TIME": np.nan,
-    "INTEGRATION_TIME": np.nan,
-    "MJD": 0,
-    "FRACTIONAL_MJD": np.nan,
-    "UTC": "None",
-    "LOCAL_TIME": "None",
-    "RIGHT_ASCENSION": "None",
-    "DECLINATION": "None",
-    "GALACTIC_LONGITUDE": np.nan,
-    "GALACTIC_LATITUDE": np.nan,
-    "AZIMUTH_ANGLE": np.nan,
-    "ZENITH_ANGLE": np.nan,
-    "ELEVATION_ANGLE": np.nan,
-    "HOUR_ANGLE": np.nan,
-    "PARALLACTIC_ANGLE": np.nan,
-    "WIND_DIRECTION": np.nan,
-    "WIND_SPEED": np.nan,
-}
-
-
-def _obs_table(ds: xr.Dataset) -> pd.DataFrame:
+def observation_parameters_table(ds: xr.Dataset) -> pd.DataFrame:
     """Rebuild an observation_parameters table from the time coordinates.
 
     Every column in :data:`REQUIRED_OBS_COLUMNS` is present, filled with a
@@ -221,19 +185,20 @@ def _obs_table(ds: xr.Dataset) -> pd.DataFrame:
     return pd.DataFrame(columns)[ordered + [c for c in columns if c not in ordered]]
 
 
-def _write_dataset_group(
+def write_data_group(
     group: h5py.Group,
     ds: xr.Dataset,
     variables: dict[str, str],
     description: str,
 ) -> None:
-    _set_class(group, "data", description)
+    """Write an astronomy or calibrator data group (data, frequency, flags, weights)."""
+    _set_class(group, "sdhdf_data", description)
     for var, path in variables.items():
         if var not in ds:
             continue
         arr = _to_4d(ds[var], rename_bin="cal_bin" if var == "binned" else None)
-        dset = _store(group, path, arr, np.float32)
-        _set_class(dset, "waterfall", f"{description} ({var})")
+        dset = write_array(group, path, arr, np.float32)
+        _set_class(dset, "sdhdf_waterfall", f"{description} ({var})")
         attrs = {
             k: v
             for k, v in ds[var].attrs.items()
@@ -253,7 +218,7 @@ def _write_dataset_group(
     fdset.attrs["DIMENSION_LABELS"] = np.array(
         ["time", "frequency"], dtype=h5py.string_dtype()
     )
-    _set_class(fdset, "frequency", "Channel centre frequencies")
+    _set_class(fdset, "sdhdf_frequency", "Channel centre frequencies")
     _set_attrs(
         fdset,
         {
@@ -269,11 +234,11 @@ def _write_dataset_group(
                 f"Writing {var} with dimensions {extra}; INSPECTA can only read "
                 f"{var} with one value per integration and channel."
             )
-    flags = _store(group, "flags", _to_4d(ds["flags"]), np.uint8)
-    _set_class(flags, "flags", "Flags dataset")
+    flags = write_array(group, "flags", _to_4d(ds["flags"]), np.uint8)
+    _set_class(flags, "sdhdf_flags", "Flags dataset")
     _set_attrs(flags, {"FLAG_TYPE": "0=not flagged, 1=flagged"})
-    weights = _store(group, "weights", _to_4d(ds["weights"]), np.float32)
-    _set_class(weights, "weights", "Weights dataset")
+    weights = write_array(group, "weights", _to_4d(ds["weights"]), np.float32)
+    _set_class(weights, "sdhdf_weights", "Weights dataset")
     _set_attrs(
         weights,
         {
@@ -284,7 +249,10 @@ def _write_dataset_group(
     )
 
 
-def _band_row(label: str, ds: xr.Dataset, original: dict[str, Any]) -> dict[str, Any]:
+def band_parameters_row(
+    label: str, ds: xr.Dataset, original: dict[str, Any]
+) -> dict[str, Any]:
+    """This band's band_parameters row, updated to describe the data as written."""
     freq = np.asarray(ds["frequency"].to_numpy(), dtype=float)
     pols = [str(p) for p in ds["polarisation"].to_numpy()]
     row = dict(original)
@@ -308,63 +276,68 @@ def _band_row(label: str, ds: xr.Dataset, original: dict[str, Any]) -> dict[str,
     return row
 
 
-def _write_beam(h5: h5py.File, beam: Beam) -> None:
+def write_beam(h5: h5py.File, beam: Beam) -> None:
+    """Write a beam group: its bands and band_parameters tables."""
     group = h5.create_group(beam.label)
     _set_class(
         group,
-        "beam",
+        "sdhdf_beam",
         "SDHDF group containing data products specific to the antenna beam",
     )
     band_rows, cal_rows = [], []
     for sb in beam.subbands:
-        _write_band(group, sb)
-        band_rows.append(_band_row(sb.label, sb.astronomy_dataset, sb.band_parameters))
+        write_band(group, sb)
+        band_rows.append(
+            band_parameters_row(sb.label, sb.astronomy_dataset, sb.band_parameters)
+        )
         if sb.calibrator_dataset is not None:
             cal_rows.append(
-                _band_row(
+                band_parameters_row(
                     sb.label, sb.calibrator_dataset, sb.calibrator_band_parameters
                 )
             )
     meta = group.create_group("metadata")
-    _set_class(meta, "group", "SDHDF group containing observation metadata")
+    _set_class(meta, "sdhdf_meta", "SDHDF group containing observation metadata")
     band_units = beam.band_parameters.units if beam.band_parameters is not None else {}
-    _write_table(meta, "band_parameters", pd.DataFrame(band_rows), units=band_units)
+    write_table(meta, "band_parameters", pd.DataFrame(band_rows), units=band_units)
     if cal_rows:
-        _write_table(
+        write_table(
             meta, "calibrator_band_parameters", pd.DataFrame(cal_rows), units=band_units
         )
 
 
-def _write_band(beam_group: h5py.Group, sb: SubBand) -> None:
+def write_band(beam_group: h5py.Group, sb: SubBand) -> None:
+    """Write a band group: astronomy data, calibrator data and observation metadata."""
     group = beam_group.create_group(sb.label)
     _set_class(
         group,
-        "band",
+        "sdhdf_band",
         "SDHDF group containing data products specific to the frequency band",
     )
     astro = group.create_group(V4_PATHS["astronomy_data"])
-    _write_dataset_group(
-        astro, sb.astronomy_dataset, {"data": "data"}, "Astronomy data"
-    )
+    write_data_group(astro, sb.astronomy_dataset, {"data": "data"}, "Astronomy data")
     meta = group.create_group(V4_PATHS["band_metadata"])
-    _set_class(meta, "group", "SDHDF group containing observation metadata")
+    _set_class(meta, "sdhdf_meta", "SDHDF group containing observation metadata")
     obs = sb.astronomy_dataset
-    _write_table(
-        meta, "observation_parameters", _obs_table(obs), units=_coord_units(obs)
+    write_table(
+        meta,
+        "observation_parameters",
+        observation_parameters_table(obs),
+        units=_coord_units(obs),
     )
     if sb.calibrator_dataset is not None:
         cal = group.create_group(V4_PATHS["calibrator_data"])
-        _write_dataset_group(
+        write_data_group(
             cal,
             sb.calibrator_dataset,
             {role: V4_PATHS[role] for role in ("on", "off", "binned")}
             | {"data": "data"},
             "Calibrator data",
         )
-        _write_table(
+        write_table(
             meta,
             "calibrator_observation_parameters",
-            _obs_table(sb.calibrator_dataset),
+            observation_parameters_table(sb.calibrator_dataset),
             units=_coord_units(sb.calibrator_dataset),
         )
 
@@ -408,9 +381,9 @@ def write_sdhdf(sdhdf: SDHDF, filename: str | Path, overwrite: bool = False) -> 
 
     tmp = filename.with_name(filename.name + ".partial")
     with h5py.File(tmp, "w") as h5:
-        _set_class(h5, "file", "SDHDF format file")
+        _set_class(h5, "sdhdf_file", "SDHDF format file")
         meta = h5.create_group("metadata")
-        _set_class(meta, "group", "SDHDF group containing observation metadata")
+        _set_class(meta, "sdhdf_meta", "SDHDF group containing observation metadata")
         for name, table in tables.items():
             if name in ("history",) or name.endswith("configuration"):
                 continue
@@ -432,19 +405,21 @@ def write_sdhdf(sdhdf: SDHDF, filename: str | Path, overwrite: bool = False) -> 
                     ],
                     ignore_index=True,
                 )
-            _write_table(meta, name, frame, units=table.units)
-        _write_table(meta, "history", hist)
+            write_table(meta, name, frame, units=table.units)
+        write_table(meta, "history", hist)
 
         config = h5.create_group("configuration")
         _set_class(
-            config, "configuration", "SDHDF group containing configuration parameters"
+            config,
+            "sdhdf_configuration",
+            "SDHDF group containing configuration parameters",
         )
         for name, table in tables.items():
             if name.endswith("configuration"):
-                _write_table(config, name, table.table, units=table.units)
+                write_table(config, name, table.table, units=table.units)
 
         for beam in sdhdf.beams:
-            _write_beam(h5, beam)
+            write_beam(h5, beam)
     tmp.replace(filename)
     sdhdf.metadata.history.table = hist
     logger.info(f"Wrote '{filename}' (SDHDF {LATEST_VERSION})")

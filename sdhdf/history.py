@@ -9,20 +9,6 @@ from typing import Any
 
 import pandas as pd
 
-#: Columns of the SDHDF 4.0 history table.
-HISTORY_COLUMNS = (
-    "DATE",
-    "PROCESS",
-    "PROCESS_DESCRIPTION",
-    "PROCESS_ARGUMENTS",
-    "PROCESSING_HOST",
-    "PROCESS_LOG",
-)
-
-
-def _format_args(arguments: dict[str, Any]) -> str:
-    return json.dumps(arguments, default=repr, sort_keys=True)
-
 
 def generate_history_row(
     process: str,
@@ -48,7 +34,9 @@ def generate_history_row(
             ),
             "PROCESS": process,
             "PROCESS_DESCRIPTION": description,
-            "PROCESS_ARGUMENTS": _format_args(arguments or {}),
+            "PROCESS_ARGUMENTS": json.dumps(
+                arguments or {}, default=repr, sort_keys=True
+            ),
             "PROCESSING_HOST": socket.gethostname(),
             "PROCESS_LOG": log,
         },
@@ -60,5 +48,5 @@ def append(history: pd.DataFrame | None, *rows: pd.DataFrame) -> pd.DataFrame:
     """Append history rows to a history table."""
     frames = [f for f in (history, *rows) if f is not None and len(f)]
     if not frames:
-        return pd.DataFrame(columns=list(HISTORY_COLUMNS))
+        return generate_history_row("").iloc[:0]
     return pd.concat(frames, ignore_index=True)

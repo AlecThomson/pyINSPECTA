@@ -18,13 +18,13 @@ import xarray as xr
 
 from sdhdf.logger import logger
 
-#: Per-integration metadata that should be summed (not averaged) in time.
-_SUMMED_TIME_COORDS = {"INTEGRATION_TIME"}
-#: Variables averaged like data (all others are flags/weights).
-_DATA_VARS = ("data", "on", "off", "binned")
 
+def factor_for_width(ds: xr.Dataset, dim: str, width: float) -> int:
+    """Number of samples along ``dim`` to average for a given width.
 
-def _factor_for_width(ds: xr.Dataset, dim: str, width: float) -> int:
+    For ``time`` the width is in seconds (using ``INTEGRATION_TIME`` where
+    recorded); otherwise it is in the units of the coordinate.
+    """
     values = np.asarray(ds[dim], dtype=float)
     if values.size < 2:
         return 1
@@ -36,10 +36,10 @@ def _factor_for_width(ds: xr.Dataset, dim: str, width: float) -> int:
     return factor
 
 
-def _coarsen_coord(coord: xr.DataArray, dim: str, n: int) -> xr.DataArray:
+def average_coordinate(coord: xr.DataArray, dim: str, n: int) -> xr.DataArray:
     """Average one coordinate along ``dim``."""
     coord = xr.DataArray(coord.variable, name=coord.name)  # without other coords
-    if coord.name in _SUMMED_TIME_COORDS and dim == "time":
+    if coord.name == "INTEGRATION_TIME" and dim == "time":  # summed, not averaged
         return coord.coarsen({dim: n}, boundary="trim").sum()
     if np.issubdtype(coord.dtype, np.number) and not np.issubdtype(
         coord.dtype, np.integer
@@ -51,12 +51,15 @@ def _coarsen_coord(coord: xr.DataArray, dim: str, n: int) -> xr.DataArray:
     return coord.isel({dim: idx})
 
 
-def _rebuild_coords(ds: xr.Dataset, out: xr.Dataset, dim: str, n: int) -> xr.Dataset:
+def average_coordinates(
+    ds: xr.Dataset, out: xr.Dataset, dim: str, n: int
+) -> xr.Dataset:
+    """Assign the block-averaged coordinates along ``dim`` of ``ds`` to ``out``."""
     coords = {}
     for name, coord in ds.coords.items():
         if dim not in coord.dims:
             continue
-        new = _coarsen_coord(coord, dim, n)
+        new = average_coordinate(coord, dim, n)
         coords[name] = (coord.dims, new.data, coord.attrs)
     out = out.assign_coords(coords)
     if dim == "time" and {"MJD", "FRACTIONAL_MJD"} <= set(out.coords):
@@ -68,7 +71,11 @@ def _rebuild_coords(ds: xr.Dataset, out: xr.Dataset, dim: str, n: int) -> xr.Dat
     return out
 
 
-def _average_dim(ds: xr.Dataset, dim: str, n: int, method: str) -> xr.Dataset:
+def average_dimension(ds: xr.Dataset, dim: str, n: int, method: str) -> xr.Dataset:
+    """Weighted average of ``n`` consecutive samples along ``dim``.
+
+    See the module docstring for the treatment of flags and weights.
+    """
     if n <= 1:
         return ds
     if ds.sizes[dim] < n:
@@ -86,7 +93,7 @@ def _average_dim(ds: xr.Dataset, dim: str, n: int, method: str) -> xr.Dataset:
 
     w_sum = blocks(w_eff).sum()
     new_vars = {}
-    for var in _DATA_VARS:
+    for var in ("data", "on", "off", "binned"):  # flags and weights handled below
         if var not in ds:
             continue
         x = ds[var]
@@ -114,7 +121,7 @@ def _average_dim(ds: xr.Dataset, dim: str, n: int, method: str) -> xr.Dataset:
     out = out.drop_vars([c for c in out.coords if c not in out.dims], errors="ignore")
     keep = {c: ds.coords[c] for c in ds.coords if dim not in ds.coords[c].dims}
     out = out.assign_coords(keep)
-    return _rebuild_coords(ds, out, dim, n)
+    return average_coordinates(ds, out, dim, n)
 
 
 def average(
@@ -145,7 +152,7 @@ def average(
         if value is None:
             continue
         n = (
-            _factor_for_width(ds, dim, float(value))
+            factor_for_width(ds, dim, float(value))
             if isinstance(value, float)
             else int(value)
         )
@@ -154,5 +161,5 @@ def average(
             logger.warning(
                 "Dropping time-dependent frequencies when averaging channels."
             )
-        ds = _average_dim(ds, dim, n, method)
+        ds = average_dimension(ds, dim, n, method)
     return ds

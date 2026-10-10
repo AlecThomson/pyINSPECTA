@@ -9,12 +9,11 @@ import pytest
 from sdhdf import SDHDF
 
 N_TIME, N_POL, N_CHAN = 2, 4, 256
-ASTRO = "beam_0/band_SB0/astronomy_data"
 
 
 def _add(path, name, data, labels=None):
     with h5py.File(path, "r+") as h5:
-        dset = h5[ASTRO].create_dataset(name, data=data)
+        dset = h5["beam_0/band_SB0/astronomy_data"].create_dataset(name, data=data)
         if labels is not None:
             dset.attrs["DIMENSION_LABELS"] = np.array(labels, dtype=h5py.string_dtype())
 
@@ -72,9 +71,9 @@ def test_default_weights(test_file):
     """Missing weights default to integration time x channel bandwidth (Hz)."""
     ds = SDHDF(test_file).subbands[0].astronomy_dataset
     with h5py.File(test_file) as h5:
-        has_weights = any(
-            "weights" in name for name in _names(h5) if "astronomy_data" in name
-        )
+        names: list[str] = []
+        h5.visit(names.append)
+        has_weights = any("astronomy_data" in n and "weights" in n for n in names)
     if has_weights:
         pytest.skip("file has stored weights")
     chan_bw = np.abs(np.gradient(ds["frequency"].to_numpy())) * 1e6
@@ -86,12 +85,6 @@ def test_default_weights(test_file):
     np.testing.assert_allclose(
         ds["weights"].to_numpy(), np.outer(t_int, chan_bw), rtol=1e-6
     )
-
-
-def _names(h5):
-    names = []
-    h5.visit(names.append)
-    return names
 
 
 def test_stored_weights(copy_of):

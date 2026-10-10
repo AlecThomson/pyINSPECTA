@@ -7,22 +7,14 @@ import numpy as np
 import pytest
 
 from sdhdf import SDHDF
-from sdhdf._attrs import decode_attr, is_placeholder
-from sdhdf.schema import DATA_DIMS
-
-PLACEHOLDERS = [
-    "NOT FOUND",
-    "NOT SET",
-    "not defined",
-    "UNKNOWN",
-    "NULL",
-    "FIX ME 2",
-    "None",
-    "",
-]
+from sdhdf.attributes import decode_attr, is_placeholder
+from sdhdf.constants import DATA_DIMS
 
 
-@pytest.mark.parametrize("value", PLACEHOLDERS)
+@pytest.mark.parametrize(
+    "value",
+    ["NOT FOUND", "NOT SET", "not defined", "UNKNOWN", "NULL", "FIX ME 2", "None", ""],
+)
 def test_placeholders(value):
     assert is_placeholder(value)
     assert is_placeholder(value.encode())
@@ -54,7 +46,7 @@ def test_compound_attrs():
     assert decode_attr(missing) is None
 
 
-def _collapse_compound_attrs(obj):
+def collapse_compound_attrs(obj):
     """Mimic INSPECTA rewriting compound attributes as scalar strings."""
     for key in list(obj.attrs):
         value = obj.attrs[key]
@@ -67,7 +59,7 @@ def _collapse_compound_attrs(obj):
             obj.attrs[key] = np.bytes_(value[0]["value"])
 
 
-def _replace_column(dset: h5py.Dataset, column: str, value: bytes):
+def replace_column(dset: h5py.Dataset, column: str, value: bytes):
     """Replace a table column value, widening the string type if needed."""
     data = dset[()]
     dtype = [
@@ -95,7 +87,7 @@ def _replace_column(dset: h5py.Dataset, column: str, value: bytes):
 def damaged_v4(copy_of):
     path = copy_of("sdhdf_v4.0.hdf")
     with h5py.File(path, "r+") as h5:
-        h5.visititems(lambda _, obj: _collapse_compound_attrs(obj))
+        h5.visititems(lambda _, obj: collapse_compound_attrs(obj))
         band = h5["beam_00/band_SB0"]
         data = band["astronomy_data/data"]
         del data.attrs["DIMENSION_LABELS"]
@@ -106,13 +98,13 @@ def damaged_v4(copy_of):
         data.attrs["uncertain"] = np.bytes_("not defined")
         cal = band["calibrator_data/calibrator_data_on"]
         del cal.attrs["DIMENSION_LABELS"]
-        _replace_column(
+        replace_column(
             h5["metadata/primary_header"], "HEADER_DEFINITION_VERSION", b"NOT FOUND"
         )
         h5["metadata/primary_header"].attrs["HEADER_DEFINITION_VERSION"] = np.bytes_(
             "NOT FOUND"
         )
-        _replace_column(h5["metadata/primary_header"], "TELESCOPE", b"UNKNOWN")
+        replace_column(h5["metadata/primary_header"], "TELESCOPE", b"UNKNOWN")
     return path
 
 
@@ -162,7 +154,7 @@ def test_damaged_upgrade(damaged_v4, tmp_path):
     )
 
 
-def _key_by_description(obj):
+def key_attrs_by_description(obj):
     """Mimic INSPECTA writing attributes keyed by their description."""
     for key in list(obj.attrs):
         value = obj.attrs[key]
@@ -196,10 +188,10 @@ def test_description_keyed_attributes(copy_of):
                 [(description.encode(), b"None", value.encode())],
                 dtype=[("description", "S40"), ("unit", "S4"), ("value", "S12")],
             )
-        h5.visititems(lambda _, obj: _key_by_description(obj))
+        h5.visititems(lambda _, obj: key_attrs_by_description(obj))
         assert "UNIT" not in data.attrs
 
-    from sdhdf._attrs import decode_attrs  # noqa: PLC0415
+    from sdhdf.attributes import decode_attrs  # noqa: PLC0415
 
     with h5py.File(path) as h5:
         attrs = decode_attrs(h5["beam_00/band_SB0/astronomy_data/data"].attrs)

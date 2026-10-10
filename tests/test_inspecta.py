@@ -36,7 +36,7 @@ def _run(prog: str, *args, cwd: Path) -> subprocess.CompletedProcess:
     )
 
 
-def _quickdump(path: Path) -> np.ndarray:
+def quickdump(path: Path) -> np.ndarray:
     """INSPECTA's view of a file: freq, AA, BB, CR, CI, weight, MJD per row."""
     result = _run("sdhdf_quickdump", "-mjd", path.name, cwd=path.parent)
     rows = [
@@ -48,7 +48,7 @@ def _quickdump(path: Path) -> np.ndarray:
     return np.array(rows, dtype=float)
 
 
-def _ours(path: Path) -> np.ndarray:
+def our_dump(path: Path) -> np.ndarray:
     rows: list[list[float]] = []
     for sb in SDHDF(path).subbands:
         ds = sb.astronomy_dataset.isel(bin=0)
@@ -68,7 +68,7 @@ def test_inspecta_reads_upgraded_files(name, tmp_path):
     shutil.copy(data_path(name), src)
     up = tmp_path / f"up_{name}"
     upgrade(src, up)
-    original, upgraded, ours = _quickdump(src), _quickdump(up), _ours(src)
+    original, upgraded, ours = quickdump(src), quickdump(up), our_dump(src)
     # Data, frequencies and times are unchanged. Weights are not compared with
     # the original: without stored weights INSPECTA computes its own default
     # from the band edges, which differs slightly from the channel spacing.

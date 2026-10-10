@@ -31,22 +31,16 @@ import pandas as pd
 import xarray as xr
 from dask.array.core import normalize_chunks
 
-from sdhdf._attrs import decode_attrs, get_str_list
-from sdhdf.logger import logger
-from sdhdf.schema import (
+from sdhdf.attributes import decode_attrs, get_str_list
+from sdhdf.constants import (
     ASTRONOMY_DATASETS,
     BAND_TABLES,
     CALIBRATOR_DATASETS,
     DATA_DIMS,
-    canonical_dim,
-    find_child,
-    find_group,
-    polarisation_labels,
 )
+from sdhdf.logger import logger
+from sdhdf.schema import canonical_dim, find_child, find_group, polarisation_labels
 from sdhdf.tables import SDHDFTable
-
-_KNOWN_DIMS = {*DATA_DIMS, "beam"}
-_SKIP_ATTRS = {"DIMENSION_LABELS", "CLASS", "NAME"}
 
 
 class LazyH5Array:
@@ -75,7 +69,7 @@ class LazyH5Array:
         return (type(self).__name__, self.filename, self.path, mtime)
 
 
-def _as_array(dataset: h5py.Dataset, filename: Path, lazy: bool) -> Any:
+def read_array(dataset: h5py.Dataset, filename: Path, lazy: bool) -> Any:
     """Return a dask array (lazy) or numpy array for a dataset."""
     if not lazy or dataset.size == 0:
         return dataset[()]
@@ -98,9 +92,16 @@ def _valid_labels(attrs: dict[str, Any], ndim: int) -> list[str] | None:
     if labels is None or len(labels) != ndim:
         return None
     labels = [canonical_dim(lab) for lab in labels]
-    if len(set(labels)) != ndim or not set(labels) <= _KNOWN_DIMS:
+    if len(set(labels)) != ndim or not set(labels) <= {*DATA_DIMS, "beam"}:
         return None
     return labels
+
+
+def _array_attrs(attrs: dict[str, Any]) -> dict[str, Any]:
+    """Attributes to keep on an array (dropping layout bookkeeping)."""
+    return {
+        k: v for k, v in attrs.items() if k not in ("DIMENSION_LABELS", "CLASS", "NAME")
+    }
 
 
 def infer_data_dims(
@@ -184,7 +185,7 @@ def _squeeze_beam(arr: xr.DataArray) -> xr.DataArray:
     return arr.isel(beam=0, drop=True)
 
 
-def _read_aux(
+def read_flags_or_weights(
     dataset: h5py.Dataset | None,
     data_sizes: dict[str, int],
     filename: Path,
@@ -198,7 +199,7 @@ def _read_aux(
     dims = infer_aux_dims(dataset.shape, attrs, data_sizes, name)
     if dims is None:
         return None
-    arr = xr.DataArray(_as_array(dataset, filename, lazy), dims=dims, name=name)
+    arr = xr.DataArray(read_array(dataset, filename, lazy), dims=dims, name=name)
     arr = _squeeze_beam(arr)
     squeeze = [
         d
@@ -208,11 +209,11 @@ def _read_aux(
     ]
     if squeeze:
         arr = arr.isel(dict.fromkeys(squeeze, 0), drop=True)
-    arr.attrs = {k: v for k, v in attrs.items() if k not in _SKIP_ATTRS}
+    arr.attrs = _array_attrs(attrs)
     return arr
 
 
-def _read_frequency(
+def read_frequency(
     dataset: h5py.Dataset | None, n_time: int, n_chan: int, name: str
 ) -> tuple[np.ndarray, np.ndarray | None, dict[str, Any]]:
     """Read a frequency axis.
@@ -240,7 +241,8 @@ def _read_frequency(
     return freq[0], freq, attrs
 
 
-def _channel_width_hz(freq_mhz: np.ndarray, unit: str | None) -> np.ndarray:
+def channel_width_hz(freq_mhz: np.ndarray, unit: str | None) -> np.ndarray:
+    """Width of each channel in Hz, from the channel spacing."""
     scale = {"hz": 1.0, "khz": 1e3, "mhz": 1e6, "ghz": 1e9}.get(
         str(unit or "MHz").lower(), 1e6
     )
@@ -249,7 +251,7 @@ def _channel_width_hz(freq_mhz: np.ndarray, unit: str | None) -> np.ndarray:
     return np.abs(np.gradient(freq_mhz)) * scale
 
 
-def _time_coords(
+def time_coordinates(
     table: SDHDFTable | None, n_time: int, name: str
 ) -> dict[str, tuple[str, Any]]:
     """Per-integration coordinates from an observation_parameters table."""
@@ -287,7 +289,7 @@ def _integration_time(coords: dict[str, tuple[str, Any]], default: float) -> np.
     return np.full(n_time, default if default and default > 0 else 1.0)
 
 
-def _build_dataset(
+def build_dataset(
     variables: dict[str, h5py.Dataset],
     freq_dataset: h5py.Dataset | None,
     flags_dataset: h5py.Dataset | None,
@@ -304,7 +306,7 @@ def _build_dataset(
         attrs = decode_attrs(dset.attrs)
         dims = infer_data_dims(dset.shape, attrs, f"{name}/{var}")
         arr = _squeeze_beam(
-            xr.DataArray(_as_array(dset, filename, lazy), dims=dims, name=var)
+            xr.DataArray(read_array(dset, filename, lazy), dims=dims, name=var)
         )
         missing = [d for d in DATA_DIMS if d not in arr.dims]
         if missing:
@@ -312,7 +314,7 @@ def _build_dataset(
         arr = arr.transpose(*DATA_DIMS)
         if var == "binned":
             arr = arr.rename(bin="cal_bin")
-        arr.attrs = {k: v for k, v in attrs.items() if k not in _SKIP_ATTRS}
+        arr.attrs = _array_attrs(attrs)
         arr.attrs["units"] = arr.attrs.get("UNIT") or "counts"
         arrays[var] = arr
 
@@ -328,7 +330,7 @@ def _build_dataset(
             msg = f"'{name}/{var}' has shape {dict(arr.sizes)}, inconsistent with {dict(first.sizes)}"
             raise ValueError(msg)
 
-    freq, freq_2d, freq_attrs = _read_frequency(freq_dataset, n_time, n_chan, name)
+    freq, freq_2d, freq_attrs = read_frequency(freq_dataset, n_time, n_chan, name)
     if freq.size != n_chan:
         logger.warning(
             f"Frequency axis of '{name}' has {freq.size} channels, data has "
@@ -337,7 +339,7 @@ def _build_dataset(
         freq, freq_2d = np.arange(n_chan, dtype=float), None
     unit = freq_attrs.get("UNIT") or "MHz"
 
-    coords: dict[str, Any] = _time_coords(table, n_time, name)
+    coords: dict[str, Any] = time_coordinates(table, n_time, name)
     coords["frequency"] = (
         "frequency",
         freq,
@@ -351,7 +353,7 @@ def _build_dataset(
     )
 
     sizes = {d: first.sizes[d] for d in DATA_DIMS}
-    flags = _read_aux(flags_dataset, sizes, filename, lazy, f"{name}/flags")
+    flags = read_flags_or_weights(flags_dataset, sizes, filename, lazy, f"{name}/flags")
     if flags is None:
         zeros = da.zeros if lazy else np.zeros
         flags = xr.DataArray(
@@ -361,12 +363,14 @@ def _build_dataset(
         flags = flags != 0
     flags.attrs = {"description": "True where flagged"}
 
-    weights = _read_aux(weights_dataset, sizes, filename, lazy, f"{name}/weights")
+    weights = read_flags_or_weights(
+        weights_dataset, sizes, filename, lazy, f"{name}/weights"
+    )
     if weights is None:
         t_int = _integration_time(
             coords, band_row.get("REQUESTED_INTEGRATION_TIME", 1.0)
         )
-        bw = _channel_width_hz(freq, unit)
+        bw = channel_width_hz(freq, unit)
         values = (
             da.outer(da.from_array(t_int), da.from_array(bw))
             if lazy
@@ -435,7 +439,7 @@ def read_band(
     if not isinstance(data, h5py.Dataset):
         msg = f"No astronomy data found in '{name}'"
         raise KeyError(msg)
-    astronomy = _build_dataset(
+    astronomy = build_dataset(
         variables={"data": data},
         freq_dataset=find_child(astro, ASTRONOMY_DATASETS["frequency"]),
         flags_dataset=find_child(astro, ASTRONOMY_DATASETS["flags"]),
@@ -461,7 +465,7 @@ def read_band(
         }
         if variables:
             try:
-                calibrator = _build_dataset(
+                calibrator = build_dataset(
                     variables=variables,
                     freq_dataset=find_child(cal, CALIBRATOR_DATASETS["frequency"]),
                     flags_dataset=find_child(cal, CALIBRATOR_DATASETS["flags"]),

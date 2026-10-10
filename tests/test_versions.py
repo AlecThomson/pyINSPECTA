@@ -5,24 +5,25 @@ import pytest
 from conftest import data_path
 
 from sdhdf import SDHDF
-from sdhdf.schema import DATA_DIMS
-
-EXPECTED_VERSIONS = {
-    "sdhdf_v1.9.3.hdf": "1.9.3",
-    "sdhdf_v2.0.hdf": "2.0",
-    "sdhdf_v2.1.hdf": "2.1",
-    "sdhdf_v2.2.hdf": "2.2",
-    "sdhdf_v3.0.hdf": "3.0",
-    "sdhdf_v4.0.hdf": "4.0",
-    "sdhdf_template_v2.9.hdf": "2.9",
-    "sdhdf_template_v3.0.hdf": "3.0",
-    "sdhdf_template_v4.0.hdf": "4.0",
-}
+from sdhdf.constants import DATA_DIMS
 
 
-def test_version_detected(any_file):
-    sdhdf = SDHDF(any_file)
-    assert sdhdf.metadata.version == EXPECTED_VERSIONS[any_file.name]
+@pytest.mark.parametrize(
+    ("name", "version"),
+    [
+        ("sdhdf_v1.9.3.hdf", "1.9.3"),
+        ("sdhdf_v2.0.hdf", "2.0"),
+        ("sdhdf_v2.1.hdf", "2.1"),
+        ("sdhdf_v2.2.hdf", "2.2"),
+        ("sdhdf_v3.0.hdf", "3.0"),
+        ("sdhdf_v4.0.hdf", "4.0"),
+        ("sdhdf_template_v2.9.hdf", "2.9"),
+        ("sdhdf_template_v3.0.hdf", "3.0"),
+        ("sdhdf_template_v4.0.hdf", "4.0"),
+    ],
+)
+def test_version_detected(name, version):
+    assert SDHDF(data_path(name)).metadata.version == version
 
 
 def test_common_representation(any_file):

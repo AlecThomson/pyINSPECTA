@@ -8,8 +8,8 @@ import h5py
 import numpy as np
 import pandas as pd
 
-from sdhdf._attrs import attr_unit, clean, decode_attrs
-from sdhdf.schema import COLUMN_RENAMES
+from sdhdf.attributes import attr_unit, clean, decode_attrs
+from sdhdf.constants import COLUMN_RENAMES
 
 __author__ = ["Danny Price", "Alec Thomson", "Lawrence Toomey"]
 
@@ -54,11 +54,11 @@ class SDHDFTable:
         """
         renames = COLUMN_RENAMES.get(name, {})
         attrs = decode_attrs(dataset.attrs)
-        units = _column_units(dataset, renames)
+        units = column_units(dataset, renames)
         attrs = {renames.get(k, k): v for k, v in attrs.items()}
-        table = _read_compound(dataset).rename(columns=renames)
+        table = read_compound(dataset).rename(columns=renames)
         if name in ("observation_parameters", "calibrator_observation_parameters"):
-            table = _split_mjd(table)
+            table = split_mjd(table)
         return cls(table=table, name=name, attrs=attrs, units=units)
 
     def __repr__(self):
@@ -106,7 +106,7 @@ class SDHDFTable:
         return value
 
 
-def _read_compound(dataset: h5py.Dataset) -> pd.DataFrame:
+def read_compound(dataset: h5py.Dataset) -> pd.DataFrame:
     """Read a compound dataset into a DataFrame, decoding strings."""
     if dataset.dtype.names is None or dataset.shape == ():
         return pd.DataFrame()
@@ -123,7 +123,7 @@ def _read_compound(dataset: h5py.Dataset) -> pd.DataFrame:
     return pd.DataFrame(columns)
 
 
-def _column_units(dataset: h5py.Dataset, renames: dict[str, str]) -> dict[str, str]:
+def column_units(dataset: h5py.Dataset, renames: dict[str, str]) -> dict[str, str]:
     """Units of each column, from 4.0 compound attrs or legacy ``<COL>_UNIT``."""
     units = {}
     for col in dataset.dtype.names or ():
@@ -140,7 +140,7 @@ def _column_units(dataset: h5py.Dataset, renames: dict[str, str]) -> dict[str, s
     return units
 
 
-def _split_mjd(table: pd.DataFrame) -> pd.DataFrame:
+def split_mjd(table: pd.DataFrame) -> pd.DataFrame:
     """Ensure integer ``MJD`` and ``FRACTIONAL_MJD`` columns (4.0 convention).
 
     Files before 4.0 store a single floating-point MJD.

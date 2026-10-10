@@ -15,22 +15,8 @@ import pandas as pd
 import xarray as xr
 from astropy.stats import mad_std, sigma_clip
 
+from sdhdf.constants import DATA_DIMS, RFI_COLUMNS
 from sdhdf.logger import logger
-from sdhdf.schema import DATA_DIMS
-
-RFI_COLUMNS = [
-    "type",
-    "observatory label",
-    "receiver label",
-    "freq0 MHz",
-    "freq1 MHz",
-    "MJD0",
-    "MJD1",
-    "text string for label",
-]
-
-#: Other names for observatories with bundled RFI tables.
-_TELESCOPE_ALIASES = {"murriyang": "parkes", "pks": "parkes"}
 
 
 class AutoFlagError(Exception):
@@ -40,8 +26,9 @@ class AutoFlagError(Exception):
 
 
 def _telescope_key(telescope: str) -> str:
+    """Name of the bundled RFI table for a telescope."""
     key = str(telescope).strip().lower()
-    return _TELESCOPE_ALIASES.get(key, key)
+    return {"murriyang": "parkes", "pks": "parkes"}.get(key, key)
 
 
 def get_persistent_rfi(telescope: str = "Parkes") -> pd.DataFrame:

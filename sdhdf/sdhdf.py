@@ -12,13 +12,10 @@ import pandas as pd
 import xarray as xr
 
 from sdhdf import averaging, flagging, history
+from sdhdf.constants import BEAM_TABLES, CONFIG_TABLES, FILE_TABLES, ROOT_GROUPS
 from sdhdf.logger import logger
 from sdhdf.reader import read_band, table_row
 from sdhdf.schema import (
-    BEAM_TABLES,
-    CONFIG_TABLES,
-    FILE_TABLES,
-    ROOT_GROUPS,
     VersionInfo,
     band_labels,
     beam_labels,

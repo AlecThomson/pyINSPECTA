@@ -11,11 +11,6 @@ TEST_FILES = sorted(
     for p in resources.files("sdhdf.data.tests").iterdir()
     if p.name.endswith(".hdf")
 )
-TEMPLATE_FILES = sorted(
-    p.name
-    for p in resources.files("sdhdf.data.templates").iterdir()
-    if p.name.endswith(".hdf")
-)
 
 
 def data_path(name: str) -> Path:
@@ -28,7 +23,14 @@ def data_path(name: str) -> Path:
         return Path(path)
 
 
-@pytest.fixture(params=TEST_FILES + TEMPLATE_FILES)
+@pytest.fixture(
+    params=TEST_FILES
+    + sorted(
+        p.name
+        for p in resources.files("sdhdf.data.templates").iterdir()
+        if p.name.endswith(".hdf")
+    )
+)
 def any_file(request) -> Path:
     """Every bundled test file and SDHDF template."""
     return data_path(request.param)

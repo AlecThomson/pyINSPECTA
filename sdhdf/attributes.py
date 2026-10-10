@@ -21,20 +21,6 @@ from typing import Any
 import h5py
 import numpy as np
 
-_PLACEHOLDER_RE = re.compile(
-    r"""^\s*(
-        not[\s_]*(set|found|defined|available|applicable)
-        | unknown | uncertain | undefined
-        | null | none | nan | n/?a
-        | fix[\s_]*me.*
-        | string(\s*\(.*\))?
-    )\s*$""",
-    re.IGNORECASE | re.VERBOSE,
-)
-
-#: Field names that hold the value in compound SDHDF attributes, in priority order.
-_VALUE_FIELDS = ("value", "default")
-
 
 def is_placeholder(value: Any) -> bool:
     """Return True if ``value`` is a placeholder meaning "no value".
@@ -49,9 +35,18 @@ def is_placeholder(value: Any) -> bool:
         return True
     if isinstance(value, bytes):
         value = value.decode("utf-8", errors="replace")
-    if isinstance(value, str):
-        return value.strip() == "" or bool(_PLACEHOLDER_RE.match(value))
-    return False
+    if not isinstance(value, str):
+        return False
+    placeholder = r"""^\s*(
+        not[\s_]*(set|found|defined|available|applicable)
+        | unknown | uncertain | undefined
+        | null | none | nan | n/?a
+        | fix[\s_]*me.*
+        | string(\s*\(.*\))?
+    )\s*$"""
+    return value.strip() == "" or bool(
+        re.match(placeholder, value, re.IGNORECASE | re.VERBOSE)
+    )
 
 
 def decode_str(value: Any) -> Any:
@@ -76,7 +71,7 @@ def clean(value: Any) -> Any:
 def _decode_compound(value: np.ndarray) -> Any:
     names: tuple[str, ...] = value.dtype.names or ()
     record = value.reshape(-1)[0] if value.ndim else value
-    for field in _VALUE_FIELDS:
+    for field in ("value", "default"):  # 4.0 files, 4.0 templates
         if field in names:
             return clean(record[field])
     # Unknown compound layout: (description, unit, value) is positional
@@ -123,34 +118,31 @@ def attr_unit(value: Any) -> str | None:
     return None
 
 
-#: SDHDF 4.0 attribute descriptions (lower case prefixes) and their keys. Some
-#: versions of INSPECTA write attributes keyed by their description.
-_DESCRIPTION_KEYS = (
-    ("data unit", "UNIT"),
-    ("sdhdf class name", "SDHDF_CLASS"),
-    ("sdhdf object description", "SDHDF_DESCRIPTION"),
-    ("data description", "DATA_DESCRIPTION"),
-    ("data type", "DATA_TYPE"),
-    ("number of phase bins", "NUMBER_OF_BINS"),
-    ("number of frequency channels", "NUMBER_OF_CHANNELS"),
-    ("the factor by which", "NORMALISATION_FACTOR"),
-    ("type of flagging method", "FLAG_TYPE"),
-    ("type of weighting method", "WEIGHT_TYPE"),
-    ("spectral reference frame", "FRAME"),
-    ("integrations, data array dimension", "TIME"),
-    ("frequency, data array dimension", "FREQUENCY"),
-    ("product type, data array dimension", "PRODUCT_TYPE"),
-    ("phase bins, data array dimension", "PHASE_BIN"),
-    ("file format definition version", "HEADER_DEFINITION_VERSION"),
-)
-
-_DIMENSION_RE = re.compile(r"data array dimension\s*(\d+)", re.IGNORECASE)
-
-
 def key_from_description(text: str) -> str | None:
-    """Return the attribute key whose SDHDF 4.0 description starts ``text``."""
+    """Return the attribute key whose SDHDF 4.0 description starts ``text``.
+
+    Some versions of INSPECTA write attributes keyed by their description.
+    """
+    descriptions = (
+        ("data unit", "UNIT"),
+        ("sdhdf class name", "SDHDF_CLASS"),
+        ("sdhdf object description", "SDHDF_DESCRIPTION"),
+        ("data description", "DATA_DESCRIPTION"),
+        ("data type", "DATA_TYPE"),
+        ("number of phase bins", "NUMBER_OF_BINS"),
+        ("number of frequency channels", "NUMBER_OF_CHANNELS"),
+        ("the factor by which", "NORMALISATION_FACTOR"),
+        ("type of flagging method", "FLAG_TYPE"),
+        ("type of weighting method", "WEIGHT_TYPE"),
+        ("spectral reference frame", "FRAME"),
+        ("integrations, data array dimension", "TIME"),
+        ("frequency, data array dimension", "FREQUENCY"),
+        ("product type, data array dimension", "PRODUCT_TYPE"),
+        ("phase bins, data array dimension", "PHASE_BIN"),
+        ("file format definition version", "HEADER_DEFINITION_VERSION"),
+    )
     lowered = text.strip().lower()
-    for prefix, key in _DESCRIPTION_KEYS:
+    for prefix, key in descriptions:
         if lowered.startswith(prefix):
             return key
     return None
@@ -195,7 +187,9 @@ def decode_attrs(attrs: h5py.AttributeManager | dict) -> dict[str, Any]:
             out[key] = None
             continue
         value = decode_attr(raw)
-        if match := _DIMENSION_RE.search(_attr_description(key, raw)):
+        if match := re.search(
+            r"data array dimension\s*(\d+)", _attr_description(key, raw), re.IGNORECASE
+        ):
             dimensions[int(match.group(1))] = value
         canonical = key_from_description(key) if " " in key else None
         if canonical is not None:
