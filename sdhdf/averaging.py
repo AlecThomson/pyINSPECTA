@@ -1,14 +1,16 @@
 """Weighted averaging of SDHDF bands in time and frequency.
 
-The weighted mean of ``n`` samples is::
+Flags are treated as in CASA's ``mstransform``. The weighted mean of ``n``
+samples is::
 
     x = sum(w_i (1 - f_i) x_i) / sum(w_i (1 - f_i))
 
-where ``w`` are the weights and ``f`` the flags. The output weight is
-``sum(w_i (1 - f_i))``, and an output sample is flagged only if all of its
-input samples were flagged (it then holds the unweighted mean of the inputs,
-so that it remains inspectable). Samples left over when the axis length is not
-a multiple of ``n`` are dropped.
+where ``w`` are the weights and ``f`` the flags, and the output weight is
+``sum(w_i (1 - f_i))``. Flagged samples are excluded unless *all* samples
+contributing to an output sample are flagged; the output is then the weighted
+mean of all of them, ``sum(w_i x_i) / sum(w_i)``, with weight ``sum(w_i)``,
+and is flagged. Samples left over when the axis length is not a multiple of
+``n`` are dropped.
 """
 
 from __future__ import annotations
@@ -83,38 +85,49 @@ def average_dimension(ds: xr.Dataset, dim: str, n: int, method: str) -> xr.Datas
         raise ValueError(msg)
 
     flags = ds["flags"]
-    w_eff = ds["weights"].where(~flags, 0).astype(np.float64)
-    if dim not in w_eff.dims:
-        w_eff = w_eff.expand_dims({dim: ds.sizes[dim]}, axis=0)
+    weights = (ds["weights"] * xr.ones_like(flags, dtype=np.float64)).astype(np.float64)
+    if dim not in weights.dims:
+        weights = weights.expand_dims({dim: ds.sizes[dim]}, axis=0)
+        flags = flags.expand_dims({dim: ds.sizes[dim]}, axis=0)
+    flags = flags.broadcast_like(weights)
+    unflagged_weights = weights.where(~flags, 0)
 
     def blocks(arr: xr.DataArray) -> xr.DataArray:
         arr = arr.drop_vars([c for c in arr.coords if c not in arr.dims])
         return arr.coarsen({dim: n}, boundary="trim")
 
-    w_sum = blocks(w_eff).sum()
+    all_flagged = blocks(flags).all()
+    w_good = blocks(unflagged_weights).sum()
+    w_all = blocks(weights).sum()
     new_vars = {}
     for var in ("data", "on", "off", "binned"):  # flags and weights handled below
         if var not in ds:
             continue
         x = ds[var]
         if method == "median":
-            good = blocks(x.where(w_eff > 0)).median()
+            good = blocks(x.where(~flags)).median()
+            every = blocks(x).median()
         else:
-            num = blocks((x * w_eff).astype(np.float64)).sum()
-            good = num / w_sum.where(w_sum > 0)
-        fallback = blocks(x).mean()
-        new_vars[var] = (
-            good.fillna(fallback)
-            .astype(x.dtype)
-            .transpose(*x.dims)
-            .assign_attrs(x.attrs)
+            good = blocks(
+                (x * unflagged_weights).astype(np.float64)
+            ).sum() / w_good.where(w_good > 0)
+            every = blocks((x * weights).astype(np.float64)).sum() / w_all.where(
+                w_all > 0
+            )
+        value = xr.where(all_flagged, every, good)
+        # Zero weights: fall back to the unweighted mean of the same samples
+        value = value.fillna(
+            xr.where(all_flagged, blocks(x).mean(), blocks(x.where(~flags)).mean())
         )
+        new_vars[var] = value.astype(x.dtype).transpose(*x.dims).assign_attrs(x.attrs)
 
     out = xr.Dataset(
         {
             **new_vars,
-            "flags": (w_sum <= 0).assign_attrs(flags.attrs),
-            "weights": w_sum.astype(np.float32).assign_attrs(ds["weights"].attrs),
+            "flags": all_flagged.assign_attrs(ds["flags"].attrs),
+            "weights": xr.where(all_flagged, w_all, w_good)
+            .astype(np.float32)
+            .assign_attrs(ds["weights"].attrs),
         },
         attrs=ds.attrs,
     )

@@ -22,21 +22,30 @@ def band():
 
 
 def test_weighted_frequency_average(band):
+    """CASA rule: unflagged weighted mean; fully flagged bins average all inputs."""
     n = 4
     out = averaging.average(band, frequency=n)
     x = band["data"].to_numpy()
-    w = (band["weights"].to_numpy() * ~band["flags"].to_numpy())[:, None, :, None]
     nt, npol, nf, nb = x.shape
-    num = (x * w).reshape(nt, npol, nf // n, n, nb).sum(3)
-    den = w.reshape(nt, 1, nf // n, n, 1).sum(3)
+    flags = band["flags"].to_numpy()
+    w_all = band["weights"].to_numpy()[:, None, :, None]
+    w_good = (band["weights"].to_numpy() * ~flags)[:, None, :, None]
+
+    def block_sum(a):
+        return a.reshape(a.shape[0], a.shape[1], nf // n, n, a.shape[3]).sum(3)
+
+    all_flagged = flags.reshape(nt, nf // n, n).all(2)[:, None, :, None]
     expected = np.where(
-        den > 0,
-        num / np.where(den > 0, den, 1),
-        x.reshape(nt, npol, nf // n, n, nb).mean(3),
+        all_flagged,
+        block_sum(x * w_all) / block_sum(w_all),
+        block_sum(x * w_good) / np.where(all_flagged, 1, block_sum(w_good)),
     )
+    weights = np.where(all_flagged, block_sum(w_all), block_sum(w_good))
     np.testing.assert_allclose(out["data"].to_numpy(), expected, rtol=1e-5)
-    np.testing.assert_array_equal(out["flags"].to_numpy(), (den == 0)[:, 0, :, 0])
-    np.testing.assert_allclose(out["weights"].to_numpy(), den[:, 0, :, 0], rtol=1e-6)
+    np.testing.assert_array_equal(out["flags"].to_numpy(), all_flagged[:, 0, :, 0])
+    np.testing.assert_allclose(
+        out["weights"].to_numpy(), weights[:, 0, :, 0], rtol=1e-6
+    )
     np.testing.assert_allclose(
         out["frequency"].to_numpy(), band["frequency"].to_numpy().reshape(-1, n).mean(1)
     )

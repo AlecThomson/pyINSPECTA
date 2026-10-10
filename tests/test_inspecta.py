@@ -117,11 +117,15 @@ def test_weighted_averaging_matches_inspecta(args, kwargs, tmp_path):
     mine.average(**kwargs)
     ours = mine.subbands[0].astronomy_dataset
     np.testing.assert_array_equal(theirs["flags"].to_numpy(), ours["flags"].to_numpy())
+    # Fully flagged outputs differ by design: INSPECTA writes zeros, while we
+    # follow CASA and average the flagged inputs.
+    unflagged = ~ours["flags"].to_numpy()
     np.testing.assert_allclose(
-        theirs["weights"].to_numpy(), ours["weights"].to_numpy(), rtol=1e-6
+        theirs["weights"].to_numpy()[unflagged],
+        ours["weights"].to_numpy()[unflagged],
+        rtol=1e-6,
     )
-    good = ~ours["flags"].to_numpy()[:, None, :, None]
-    good = np.broadcast_to(good, ours["data"].shape)
+    good = np.broadcast_to(unflagged[:, None, :, None], ours["data"].shape)
     np.testing.assert_allclose(
         theirs["data"].to_numpy()[good], ours["data"].to_numpy()[good], rtol=1e-5
     )
