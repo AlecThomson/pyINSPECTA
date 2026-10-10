@@ -15,7 +15,8 @@ import pandas as pd
 import xarray as xr
 from astropy.stats import mad_std, sigma_clip
 
-from sdhdf.constants import DATA_DIMS, RFI_COLUMNS
+from sdhdf.constants import DATA_DIMS
+from sdhdf.definition import definition
 from sdhdf.logger import logger
 
 
@@ -28,7 +29,7 @@ class AutoFlagError(Exception):
 def _telescope_key(telescope: str) -> str:
     """Name of the bundled RFI table for a telescope."""
     key = str(telescope).strip().lower()
-    return {"murriyang": "parkes", "pks": "parkes"}.get(key, key)
+    return definition().telescope_aliases.get(key, key)
 
 
 def get_persistent_rfi(telescope: str = "Parkes") -> pd.DataFrame:
@@ -47,7 +48,7 @@ def get_persistent_rfi(telescope: str = "Parkes") -> pd.DataFrame:
         msg = f"No persistent RFI table for telescope '{telescope}'."
         raise NotImplementedError(msg)
     with resources.as_file(rfi_file) as path:
-        return pd.read_csv(path, sep=",", comment="#", names=RFI_COLUMNS)
+        return pd.read_csv(path, sep=",", comment="#")
 
 
 def _or_flags(ds: xr.Dataset, new: xr.DataArray) -> xr.Dataset:

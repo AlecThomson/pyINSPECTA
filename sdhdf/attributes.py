@@ -21,6 +21,8 @@ from typing import Any
 import h5py
 import numpy as np
 
+from sdhdf.definition import definition
+
 
 def is_placeholder(value: Any) -> bool:
     """Return True if ``value`` is a placeholder meaning "no value".
@@ -123,26 +125,8 @@ def key_from_description(text: str) -> str | None:
 
     Some versions of INSPECTA write attributes keyed by their description.
     """
-    descriptions = (
-        ("data unit", "UNIT"),
-        ("sdhdf class name", "SDHDF_CLASS"),
-        ("sdhdf object description", "SDHDF_DESCRIPTION"),
-        ("data description", "DATA_DESCRIPTION"),
-        ("data type", "DATA_TYPE"),
-        ("number of phase bins", "NUMBER_OF_BINS"),
-        ("number of frequency channels", "NUMBER_OF_CHANNELS"),
-        ("the factor by which", "NORMALISATION_FACTOR"),
-        ("type of flagging method", "FLAG_TYPE"),
-        ("type of weighting method", "WEIGHT_TYPE"),
-        ("spectral reference frame", "FRAME"),
-        ("integrations, data array dimension", "TIME"),
-        ("frequency, data array dimension", "FREQUENCY"),
-        ("product type, data array dimension", "PRODUCT_TYPE"),
-        ("phase bins, data array dimension", "PHASE_BIN"),
-        ("file format definition version", "HEADER_DEFINITION_VERSION"),
-    )
     lowered = text.strip().lower()
-    for prefix, key in descriptions:
+    for prefix, key in definition().attribute_descriptions.items():
         if lowered.startswith(prefix):
             return key
     return None

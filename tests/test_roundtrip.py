@@ -102,10 +102,12 @@ def test_cli_upgrade(tmp_path):
 
 def test_observation_parameters_complete(tmp_path):
     """Written observation_parameters always have the columns INSPECTA reads."""
-    from sdhdf.constants import REQUIRED_OBS_COLUMNS  # noqa: PLC0415
+    from sdhdf.definition import definition  # noqa: PLC0415
+
+    required = definition().required_columns["observation_parameters"]
 
     out = tmp_path / "template.hdf"
     upgrade(data_path("sdhdf_template_v4.0.hdf"), out)  # template table is empty
     with h5py.File(out) as h5:
         obs = h5["beam_0/band_0/metadata/observation_parameters"]
-        assert set(REQUIRED_OBS_COLUMNS) <= set(obs.dtype.names)
+        assert set(required) <= set(obs.dtype.names)

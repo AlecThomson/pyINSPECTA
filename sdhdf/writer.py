@@ -22,7 +22,8 @@ import xarray as xr
 
 from sdhdf import history
 from sdhdf._version import version as __version__
-from sdhdf.constants import DATA_DIMS, LATEST_VERSION, REQUIRED_OBS_COLUMNS, V4_PATHS
+from sdhdf.constants import DATA_DIMS, LATEST_VERSION
+from sdhdf.definition import definition
 from sdhdf.logger import logger
 
 if TYPE_CHECKING:
@@ -109,23 +110,8 @@ def write_table(
     attrs: dict[str, Any] | None = None,
 ) -> None:
     """Write a metadata table as an SDHDF 4.0 compound dataset."""
-    descriptions = {
-        "primary_header": "General observation metadata",
-        "beam_parameters": "Metadata specific to the antenna beam",
-        "history": "Metadata specific to the processing history of the file",
-        "schedule": "Metadata specific to the scheduling of the observation",
-        "software_versions": "Metadata specific to software packages used for creating or processing the file",
-        "band_parameters": "Metadata specific to the frequency bands of the antenna beam",
-        "calibrator_band_parameters": "Metadata specific to the frequency bands of the antenna beam",
-        "observation_parameters": "Metadata specific to the observation integrations",
-        "calibrator_observation_parameters": "Metadata specific to the observation integrations",
-        "instrument_configuration": "Digital backend instrument configuration",
-        "calibrator_instrument_configuration": "Digital backend instrument configuration (calibrator)",
-        "receiver_configuration": "Receiver instrument configuration",
-        "telescope_configuration": "Telescope configuration",
-    }
     dset = group.create_dataset(name, data=to_records(frame))
-    _set_class(dset, "sdhdf_table", descriptions.get(name, name))
+    _set_class(dset, "sdhdf_table", definition().table_descriptions.get(name, name))
     units = units or {}
     for col in frame.columns:
         dset.attrs[str(col)] = compound_attr(
@@ -163,7 +149,7 @@ def _to_4d(arr: xr.DataArray, rename_bin: str | None = None) -> xr.DataArray:
 def observation_parameters_table(ds: xr.Dataset) -> pd.DataFrame:
     """Rebuild an observation_parameters table from the time coordinates.
 
-    Every column in :data:`REQUIRED_OBS_COLUMNS` is present, filled with a
+    Every required column (see ``definition.toml``) is present, filled with a
     placeholder where the data do not record it.
     """
     n_time = ds.sizes["time"]
@@ -176,12 +162,13 @@ def observation_parameters_table(ds: xr.Dataset) -> pd.DataFrame:
         mjd = ds["time"].to_numpy().astype(float)
         columns["MJD"] = np.floor(mjd).astype(np.int64)
         columns["FRACTIONAL_MJD"] = mjd - np.floor(mjd)
-    for name, fill in REQUIRED_OBS_COLUMNS.items():
+    required = definition().required_columns["observation_parameters"]
+    for name, fill in required.items():
         if name not in columns:
             columns[name] = np.full(
                 n_time, fill, dtype=object if isinstance(fill, str) else float
             )
-    ordered = [c for c in REQUIRED_OBS_COLUMNS if c in columns]
+    ordered = [c for c in required if c in columns]
     return pd.DataFrame(columns)[ordered + [c for c in columns if c not in ordered]]
 
 
@@ -314,9 +301,9 @@ def write_band(beam_group: h5py.Group, sb: SubBand) -> None:
         "sdhdf_band",
         "SDHDF group containing data products specific to the frequency band",
     )
-    astro = group.create_group(V4_PATHS["astronomy_data"])
+    astro = group.create_group("astronomy_data")
     write_data_group(astro, sb.astronomy_dataset, {"data": "data"}, "Astronomy data")
-    meta = group.create_group(V4_PATHS["band_metadata"])
+    meta = group.create_group("metadata")
     _set_class(meta, "sdhdf_meta", "SDHDF group containing observation metadata")
     obs = sb.astronomy_dataset
     write_table(
@@ -326,11 +313,14 @@ def write_band(beam_group: h5py.Group, sb: SubBand) -> None:
         units=_coord_units(obs),
     )
     if sb.calibrator_dataset is not None:
-        cal = group.create_group(V4_PATHS["calibrator_data"])
+        cal = group.create_group("calibrator_data")
         write_data_group(
             cal,
             sb.calibrator_dataset,
-            {role: V4_PATHS[role] for role in ("on", "off", "binned")}
+            {
+                role: definition().calibrator_datasets[role][0]
+                for role in ("on", "off", "binned")
+            }
             | {"data": "data"},
             "Calibrator data",
         )

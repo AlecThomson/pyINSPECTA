@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 from sdhdf.attributes import attr_unit, clean, decode_attrs
-from sdhdf.constants import COLUMN_RENAMES
+from sdhdf.definition import definition
 
 __author__ = ["Danny Price", "Alec Thomson", "Lawrence Toomey"]
 
@@ -52,7 +52,7 @@ class SDHDFTable:
         Returns:
             SDHDFTable: The table.
         """
-        renames = COLUMN_RENAMES.get(name, {})
+        renames = definition().renames_for(name)
         attrs = decode_attrs(dataset.attrs)
         units = column_units(dataset, renames)
         attrs = {renames.get(k, k): v for k, v in attrs.items()}

@@ -6,14 +6,14 @@ import pytest
 from conftest import data_path
 
 from sdhdf import SDHDF, flagging
-from sdhdf.constants import RFI_COLUMNS
 
 V3 = "sdhdf_v3.0.hdf"  # 829-830 MHz band
 
 
 def _rfi(f0, f1, rcvr="all", mjd0=0, mjd1=999999, obs="Parkes"):
     return pd.DataFrame(
-        [[1, obs, rcvr, f0, f1, mjd0, mjd1, "test"]], columns=RFI_COLUMNS
+        [[1, obs, rcvr, f0, f1, mjd0, mjd1, "test"]],
+        columns=flagging.get_persistent_rfi().columns,
     )
 
 

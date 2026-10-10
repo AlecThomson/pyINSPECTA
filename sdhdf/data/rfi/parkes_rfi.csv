@@ -10,6 +10,7 @@
 #
 # Parkes RFI
 #
+type,observatory label,receiver label,freq0 MHz,freq1 MHz,MJD0,MJD1,text string for label
 1,Parkes,all,754,768,0,999999,Optus transmission tower (note from 754-758 we have out-of-band signals)
 1,Parkes,all,768,788,0,999999,Telstra transmission tower
 1,Parkes,all,869.95,875.05,0,999999,Vodafone transmission tower

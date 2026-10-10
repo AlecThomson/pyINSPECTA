@@ -12,7 +12,7 @@ import pandas as pd
 import xarray as xr
 
 from sdhdf import averaging, flagging, history
-from sdhdf.constants import BEAM_TABLES, CONFIG_TABLES, FILE_TABLES, ROOT_GROUPS
+from sdhdf.definition import definition
 from sdhdf.logger import logger
 from sdhdf.reader import read_band, table_row
 from sdhdf.schema import (
@@ -59,12 +59,16 @@ class MetaData:
     @classmethod
     def from_file(cls, h5: h5py.File) -> MetaData:
         version_info = detect_version(h5)
-        meta = find_group(h5, ROOT_GROUPS["metadata"][0])
-        config = find_child(h5, ROOT_GROUPS["configuration"])
+        groups = definition().groups
+        meta = find_child(h5, groups["metadata"])
+        config = find_child(h5, groups["configuration"])
         tables = {
-            **_read_tables(meta, FILE_TABLES),
             **_read_tables(
-                config if isinstance(config, h5py.Group) else None, CONFIG_TABLES
+                meta if isinstance(meta, h5py.Group) else None, definition().file_tables
+            ),
+            **_read_tables(
+                config if isinstance(config, h5py.Group) else None,
+                definition().configuration_tables,
             ),
         }
         if "history" not in tables:
@@ -104,11 +108,11 @@ class MetaData:
 
     def print_obs_metadata(self) -> None:
         """Print the observation metadata tables."""
-        self._print(FILE_TABLES)
+        self._print(definition().file_tables)
 
     def print_obs_config(self) -> None:
         """Print the observation configuration tables."""
-        self._print(CONFIG_TABLES)
+        self._print(definition().configuration_tables)
 
 
 class SubBand:
@@ -270,7 +274,9 @@ class Beam:
 
     def __init__(self, h5: h5py.File, label: str, in_memory: bool = False):
         self.label = label
-        tables = _read_tables(find_group(h5[label], "metadata"), BEAM_TABLES)
+        tables = _read_tables(
+            find_group(h5[label], "metadata"), definition().beam_tables
+        )
         self.band_parameters = tables.get("band_parameters")
         self.calibrator_band_parameters = tables.get("calibrator_band_parameters")
         self.subbands = [

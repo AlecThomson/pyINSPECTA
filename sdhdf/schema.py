@@ -15,23 +15,13 @@ import h5py
 import numpy as np
 
 from sdhdf.attributes import clean, decode_attr
+from sdhdf.definition import definition
 
 
 def canonical_dim(label: str) -> str:
     """Return the canonical name of a dimension label."""
-    aliases = {
-        "polarization": "polarisation",
-        "pol": "polarisation",
-        "product": "polarisation",
-        "none": "polarisation",  # 4.0 template labels the product axis 'None'
-        "channel": "frequency",
-        "freq": "frequency",
-        "phase_bin": "bin",
-        "integration": "time",
-        "dump": "time",
-    }
     label = str(label).strip().lower()
-    return aliases.get(label, label)
+    return definition().dimension_aliases.get(label, label)
 
 
 def find_child(
@@ -147,24 +137,15 @@ def detect_version(h5: h5py.File) -> VersionInfo:
 
 def polarisation_labels(pol_type: str | None, npol: int) -> np.ndarray:
     """Labels for the polarisation axis given the POLARISATION_TYPE."""
-    pol_types = {
-        "AABBCRCI": ["AA", "BB", "CR", "CI"],
-        "AABB": ["AA", "BB"],
-        "AA+BB": ["AA+BB"],
-        "IQUV": ["I", "Q", "U", "V"],
-        "XXYY": ["XX", "YY"],
-        "XXYYXYYX": ["XX", "YY", "XY", "YX"],
-        "RRLL": ["RR", "LL"],
-        "RRLLRLLR": ["RR", "LL", "RL", "LR"],
-    }
+    pol_types = definition().polarisation_types
     if pol_type is not None:
         key = re.sub(r"[\s,]", "", str(pol_type)).upper()
         labels = pol_types.get(key)
         if labels is None and len(key) == npol:
-            labels = list(key)  # e.g. "I", "IQUV"-like single-letter codes
+            labels = tuple(key)  # e.g. "I", "IQUV"-like single-letter codes
         if labels is not None and len(labels) == npol:
             return np.array(labels)
-    defaults = {4: "AABBCRCI", 2: "AABB", 1: "AA+BB"}
+    defaults = definition().default_polarisation_types
     if npol in defaults:
         return np.array(pol_types[defaults[npol]])
     return np.array([f"P{i}" for i in range(npol)])

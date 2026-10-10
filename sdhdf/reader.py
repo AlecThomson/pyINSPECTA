@@ -32,12 +32,8 @@ import xarray as xr
 from dask.array.core import normalize_chunks
 
 from sdhdf.attributes import decode_attrs, get_str_list
-from sdhdf.constants import (
-    ASTRONOMY_DATASETS,
-    BAND_TABLES,
-    CALIBRATOR_DATASETS,
-    DATA_DIMS,
-)
+from sdhdf.constants import DATA_DIMS
+from sdhdf.definition import definition
 from sdhdf.logger import logger
 from sdhdf.schema import canonical_dim, find_child, find_group, polarisation_labels
 from sdhdf.tables import SDHDFTable
@@ -431,19 +427,20 @@ def read_band(
     name = f"{beam_label}/{band_label}"
     band_row = band_row or {}
     meta = find_group(group, "metadata")
-    obs = _read_table(meta, "observation_parameters", BAND_TABLES)
-    cal_obs = _read_table(meta, "calibrator_observation_parameters", BAND_TABLES)
+    band_tables = definition().band_tables
+    obs = _read_table(meta, "observation_parameters", band_tables)
+    cal_obs = _read_table(meta, "calibrator_observation_parameters", band_tables)
 
     astro = find_group(group, "astronomy_data")
-    data = find_child(astro, ASTRONOMY_DATASETS["data"])
+    data = find_child(astro, definition().astronomy_datasets["data"])
     if not isinstance(data, h5py.Dataset):
         msg = f"No astronomy data found in '{name}'"
         raise KeyError(msg)
     astronomy = build_dataset(
         variables={"data": data},
-        freq_dataset=find_child(astro, ASTRONOMY_DATASETS["frequency"]),
-        flags_dataset=find_child(astro, ASTRONOMY_DATASETS["flags"]),
-        weights_dataset=find_child(astro, ASTRONOMY_DATASETS["weights"]),
+        freq_dataset=find_child(astro, definition().astronomy_datasets["frequency"]),
+        flags_dataset=find_child(astro, definition().astronomy_datasets["flags"]),
+        weights_dataset=find_child(astro, definition().astronomy_datasets["weights"]),
         table=obs,
         band_row=band_row,
         filename=filename,
@@ -459,7 +456,8 @@ def read_band(
             role: dset
             for role in ("on", "off", "binned", "data")
             if isinstance(
-                dset := find_child(cal, CALIBRATOR_DATASETS[role]), h5py.Dataset
+                dset := find_child(cal, definition().calibrator_datasets[role]),
+                h5py.Dataset,
             )
             and dset.size > 0
         }
@@ -467,9 +465,15 @@ def read_band(
             try:
                 calibrator = build_dataset(
                     variables=variables,
-                    freq_dataset=find_child(cal, CALIBRATOR_DATASETS["frequency"]),
-                    flags_dataset=find_child(cal, CALIBRATOR_DATASETS["flags"]),
-                    weights_dataset=find_child(cal, CALIBRATOR_DATASETS["weights"]),
+                    freq_dataset=find_child(
+                        cal, definition().calibrator_datasets["frequency"]
+                    ),
+                    flags_dataset=find_child(
+                        cal, definition().calibrator_datasets["flags"]
+                    ),
+                    weights_dataset=find_child(
+                        cal, definition().calibrator_datasets["weights"]
+                    ),
                     table=cal_obs,
                     band_row=calibrator_band_row or band_row,
                     filename=filename,

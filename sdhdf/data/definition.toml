@@ -1,0 +1,229 @@
+# Description of the SDHDF format across definition versions (1.9 to 4.0).
+#
+# Every version stores the same information under different names. Readers find
+# each object by trying its candidate names in order (newest first), rather than
+# branching on the recorded version, which some files record wrongly or not at
+# all. Canonical names are the SDHDF 4.0 names.
+#
+# Sources: the SDHDF definition documents and templates (CSIRO DAP,
+# doi:10.25919/q1hf-8p06), Toomey et al. 2024 (A&C 47, 100804) tables 3 and 4,
+# and files written by the Parkes Medusa backend and by INSPECTA.
+
+# ---------------------------------------------------------------------------
+# Object names: canonical role -> candidate names, newest first
+# ---------------------------------------------------------------------------
+
+# Relative to the file root
+[groups]
+metadata = ["metadata"]
+configuration = ["configuration", "config"]
+
+# Relative to /metadata
+[tables.file]
+primary_header = ["primary_header"]
+beam_parameters = ["beam_parameters", "beam_params"]
+history = ["history"]
+schedule = ["schedule"]
+software_versions = ["software_versions"]
+
+# Relative to /configuration (or /config before 4.0). Before 4.0 the noise
+# diode backend had its own table; 4.0 merges both into instrument_configuration.
+[tables.configuration]
+instrument_configuration = ["instrument_configuration", "backend_config"]
+calibrator_instrument_configuration = ["calibrator_instrument_configuration", "cal_backend_config"]
+receiver_configuration = ["receiver_configuration"]
+telescope_configuration = ["telescope_configuration"]
+
+# Relative to /beam_N/metadata
+[tables.beam]
+band_parameters = ["band_parameters", "band_params"]
+calibrator_band_parameters = ["calibrator_band_parameters", "cal_band_params"]
+
+# Relative to /beam_N/band_X/metadata
+[tables.band]
+observation_parameters = ["observation_parameters", "obs_params"]
+calibrator_observation_parameters = ["calibrator_observation_parameters", "cal_obs_params"]
+
+# Relative to /beam_N/band_X/astronomy_data
+[datasets.astronomy]
+data = ["data"]
+frequency = ["frequency"]
+flags = ["flags", "data_flags"]
+weights = ["weights", "data_weights"]
+
+# Relative to /beam_N/band_X/calibrator_data
+[datasets.calibrator]
+on = ["calibrator_data_on", "cal_on", "cal_data_on"]
+off = ["calibrator_data_off", "cal_off", "cal_data_off"]
+binned = ["calibrator_data_binned", "cal_binned", "cal32_data"]
+# The 4.0 definition document and template describe a single dataset, while
+# real 4.0 files have on/off/binned
+data = ["data"]
+frequency = ["frequency", "cal_frequency"]
+flags = ["flags", "cal_data_flags"]
+weights = ["weights", "cal_data_weights"]
+
+# ---------------------------------------------------------------------------
+# Table columns
+# ---------------------------------------------------------------------------
+
+# Legacy column name -> 4.0 name. The calibrator_* tables use the renames of
+# the table they mirror (e.g. calibrator_band_parameters -> band_parameters).
+[column_renames.observation_parameters]
+DUMP_TIME = "INTEGRATION_TIME"
+AEST = "LOCAL_TIME"
+RA_STR = "RIGHT_ASCENSION"
+DEC_STR = "DECLINATION"
+FSTAT = "DRIVE_STATUS"
+GL = "GALACTIC_LONGITUDE"
+GB = "GALACTIC_LATITUDE"
+AZ = "AZIMUTH_ANGLE"
+ZE = "ZENITH_ANGLE"
+EL = "ELEVATION_ANGLE"
+PARA_ANGLE = "PARALLACTIC_ANGLE"
+WIND_DIR = "WIND_DIRECTION"
+WIND_SPD = "WIND_SPEED"
+REL_HUMIDITY = "RELATIVE_HUMIDITY"
+
+[column_renames.band_parameters]
+CENTRE_FREQ = "CENTRE_FREQUENCY"
+LOW_FREQ = "LOW_FREQUENCY"
+HIGH_FREQ = "HIGH_FREQUENCY"
+N_CHANS = "NUMBER_OF_CHANNELS"
+N_POLS = "NUMBER_OF_POLARISATIONS"
+POL_TYPE = "POLARISATION_TYPE"
+# In band_params DUMP_TIME is the requested, not the actual, integration time
+DUMP_TIME = "REQUESTED_INTEGRATION_TIME"
+N_DUMPS = "NUMBER_OF_INTEGRATIONS"
+PARTIAL_N_DUMPS = "PARTIAL_NUMBER_OF_INTEGRATIONS"
+N_BINS = "NUMBER_OF_BINS"
+
+[column_renames.beam_parameters]
+N_BANDS = "NUMBER_OF_BANDS"
+RA = "RIGHT_ASCENSION"
+DEC = "DECLINATION"
+
+[column_renames.primary_header]
+HDR_DEFN = "HEADER_DEFINITION"
+HDR_DEFN_VERSION = "HEADER_DEFINITION_VERSION"
+SCHED_BLOCK_ID = "SCHEDULE_ID"
+CAL_MODE = "CALIBRATION_MODE"
+OBS_TYPE = "OBSERVATION_TYPE"
+PID = "PROJECT_ID"
+N_BEAMS = "NUMBER_OF_BEAMS"
+
+[column_renames.history]
+PROC = "PROCESS"
+PROC_DESCR = "PROCESS_DESCRIPTION"
+PROC_ARGS = "PROCESS_ARGUMENTS"
+PROC_HOST = "PROCESSING_HOST"
+PROC_LOG = "PROCESS_LOG"
+
+[column_renames.software_versions]
+PROC = "PROCESS"
+SOFTWARE_DESCR = "SOFTWARE_DESCRIPTION"
+
+[column_renames.schedule]
+SCHED_HOST = "SCHEDULE_HOST"
+SCHED_VERSION = "SCHEDULE_VERSION"
+SCHED_BLOCK = "SCHEDULE_BLOCK"
+
+# Columns of observation_parameters that readers (e.g. INSPECTA) require, with
+# the value written when a file does not record them.
+[required_columns.observation_parameters]
+ELAPSED_TIME = nan
+INTEGRATION_TIME = nan
+MJD = 0
+FRACTIONAL_MJD = nan
+UTC = "None"
+LOCAL_TIME = "None"
+RIGHT_ASCENSION = "None"
+DECLINATION = "None"
+GALACTIC_LONGITUDE = nan
+GALACTIC_LATITUDE = nan
+AZIMUTH_ANGLE = nan
+ZENITH_ANGLE = nan
+ELEVATION_ANGLE = nan
+HOUR_ANGLE = nan
+PARALLACTIC_ANGLE = nan
+WIND_DIRECTION = nan
+WIND_SPEED = nan
+
+# Descriptions of tables, written to their SDHDF_DESCRIPTION attribute
+[table_descriptions]
+primary_header = "General observation metadata"
+beam_parameters = "Metadata specific to the antenna beam"
+history = "Metadata specific to the processing history of the file"
+schedule = "Metadata specific to the scheduling of the observation"
+software_versions = "Metadata specific to software packages used for creating or processing the file"
+band_parameters = "Metadata specific to the frequency bands of the antenna beam"
+calibrator_band_parameters = "Metadata specific to the frequency bands of the antenna beam"
+observation_parameters = "Metadata specific to the observation integrations"
+calibrator_observation_parameters = "Metadata specific to the observation integrations"
+instrument_configuration = "Digital backend instrument configuration"
+calibrator_instrument_configuration = "Digital backend instrument configuration (calibrator)"
+receiver_configuration = "Receiver instrument configuration"
+telescope_configuration = "Telescope configuration"
+
+# ---------------------------------------------------------------------------
+# Attributes and dimensions
+# ---------------------------------------------------------------------------
+
+# Start of the 4.0 description of each attribute (lower case) -> its key. Some
+# versions of INSPECTA write attributes keyed by their description.
+[attribute_descriptions]
+"data unit" = "UNIT"
+"sdhdf class name" = "SDHDF_CLASS"
+"sdhdf object description" = "SDHDF_DESCRIPTION"
+"data description" = "DATA_DESCRIPTION"
+"data type" = "DATA_TYPE"
+"number of phase bins" = "NUMBER_OF_BINS"
+"number of frequency channels" = "NUMBER_OF_CHANNELS"
+"the factor by which" = "NORMALISATION_FACTOR"
+"type of flagging method" = "FLAG_TYPE"
+"type of weighting method" = "WEIGHT_TYPE"
+"spectral reference frame" = "FRAME"
+"integrations, data array dimension" = "TIME"
+"frequency, data array dimension" = "FREQUENCY"
+"product type, data array dimension" = "PRODUCT_TYPE"
+"phase bins, data array dimension" = "PHASE_BIN"
+"file format definition version" = "HEADER_DEFINITION_VERSION"
+
+# Dimension labels found in files (lower case) -> canonical dimension
+[dimension_aliases]
+# 'polarization' before 4.0
+polarization = "polarisation"
+pol = "polarisation"
+product = "polarisation"
+# The 4.0 template labels the product axis 'None'
+none = "polarisation"
+channel = "frequency"
+freq = "frequency"
+phase_bin = "bin"
+integration = "time"
+dump = "time"
+
+# POLARISATION_TYPE -> labels of the polarisation axis. AA and BB are the
+# direct products of inputs A and B; CR and CI the real and imaginary parts of
+# the cross product A* B.
+[polarisation_types]
+AABBCRCI = ["AA", "BB", "CR", "CI"]
+AABB = ["AA", "BB"]
+"AA+BB" = ["AA+BB"]
+IQUV = ["I", "Q", "U", "V"]
+XXYY = ["XX", "YY"]
+XXYYXYYX = ["XX", "YY", "XY", "YX"]
+RRLL = ["RR", "LL"]
+RRLLRLLR = ["RR", "LL", "RL", "LR"]
+
+# POLARISATION_TYPE assumed when a file does not record it, by number of
+# polarisations
+[default_polarisation_types]
+1 = "AA+BB"
+2 = "AABB"
+4 = "AABBCRCI"
+
+# Other names of telescopes with bundled persistent RFI tables
+[telescope_aliases]
+murriyang = "parkes"
+pks = "parkes"
