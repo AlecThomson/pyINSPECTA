@@ -40,15 +40,19 @@ dependencies = [
     "pandas >=1.4",
     "xarray >=2022",
     "matplotlib >=3.5",
-    "tables >=3.7",
-    "tabulate",
     "dask",
-    "distributed",
-    "tqdm",
 ]
 
 [project.optional-dependencies]
+test = [
+    "pytest >=6",
+    "pytest-cov >=3",
+    "nbconvert >=7.2",
+    "nbformat",
+    "ipykernel",
+]
 dev = [
+    "sdhdf[test]",
     "ruff >= 0.9.9",
     "pre-commit",
     "sphinx >=4.2",
@@ -69,13 +73,18 @@ dev = [
     "ipython",
 ]
 
+[project.scripts]
+sdhdf-upgrade = "sdhdf.cli:upgrade_main"
+
 [tool.hatch]
 version.source = "vcs"
 build.hooks.vcs.version-file = "sdhdf/_version.py"
 
 [project.urls]
-Homepage = "https://bitbucket.csiro.au/projects/CPDA/repos/sdhdf_tools/browse"
-"Bug Tracker" = "https://jira.csiro.au/projects/CPDA/"
+Homepage = "https://github.com/AlecThomson/pyINSPECTA"
+Documentation = "https://pyinspecta.readthedocs.io"
+"Bug Tracker" = "https://github.com/AlecThomson/pyINSPECTA/issues"
+"SDHDF definition" = "https://doi.org/10.25919/q1hf-8p06"
 
 [tool.ruff]
 extend-exclude = ["examples/*.py", "docs/conf.py"]

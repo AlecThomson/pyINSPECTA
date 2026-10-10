@@ -1,22 +1,27 @@
-"""Logging module for sdhdf"""
+"""Logging module for sdhdf
+
+The package logs to the ``sdhdf`` logger and does not configure handlers, so
+that applications control where messages go. Use :func:`set_verbosity` for
+quick interactive use.
+"""
 
 from __future__ import annotations
 
 import logging
 
-# Create logger
 logger = logging.getLogger("sdhdf")
-logger.setLevel(logging.INFO)
+logger.addHandler(logging.NullHandler())
 
-# Create console handler and set level to debug
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
 
-# Create formatter
-formatter = logging.Formatter("%(name)s - %(levelname)s: %(message)s")
+def set_verbosity(level: int | str = logging.INFO) -> None:
+    """Print sdhdf log messages at or above ``level`` to stderr.
 
-# Add formatter to ch
-ch.setFormatter(formatter)
-
-# Add ch to logger
-logger.addHandler(ch)
+    Args:
+        level (int | str, optional): Logging level. Defaults to INFO.
+    """
+    logger.setLevel(level)
+    if not any(getattr(h, "_sdhdf", False) for h in logger.handlers):
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s: %(message)s"))
+        handler._sdhdf = True  # type: ignore[attr-defined]
+        logger.addHandler(handler)
