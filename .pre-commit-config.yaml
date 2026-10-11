@@ -16,6 +16,7 @@ repos:
       - id: check-case-conflict
       - id: check-merge-conflict
       - id: check-symlinks
+      - id: check-toml
       - id: check-yaml
       - id: debug-statements
       - id: end-of-file-fixer
@@ -40,14 +41,21 @@ repos:
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "v1.17.0"
+    rev: "v2.3.0"
     hooks:
       - id: mypy
         files: sdhdf|tests
-        args: ["--ignore-missing-imports"]
+        args: []
         additional_dependencies:
+          - astropy
+          - dask
+          - h5py
+          - matplotlib
+          - numpy
+          - pandas-stubs
           - pytest
-          - pydantic
+          - tomli
+          - xarray
 
   - repo: https://github.com/codespell-project/codespell
     rev: "v2.4.1"

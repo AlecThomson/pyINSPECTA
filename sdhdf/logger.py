@@ -1,22 +1,38 @@
-"""Logging module for sdhdf"""
+"""Logging module for sdhdf
+
+Messages at INFO and above are printed by default. If the application has
+configured logging itself (e.g. with ``logging.basicConfig``), messages go
+through that configuration instead, so nothing is printed twice. Use
+:func:`set_verbosity` to change the level.
+"""
 
 from __future__ import annotations
 
 import logging
+import sys
 
-# Create logger
+
+# StreamHandler can't be subscripted at runtime on Python 3.10
+class _DefaultHandler(logging.StreamHandler):  # type: ignore[type-arg]
+    """Print messages unless the root logger has handlers of its own."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if not logging.getLogger().handlers:
+            self.stream = sys.stderr  # stderr may be replaced (e.g. by Jupyter)
+            super().emit(record)
+
+
 logger = logging.getLogger("sdhdf")
 logger.setLevel(logging.INFO)
+_handler = _DefaultHandler()
+_handler.setFormatter(logging.Formatter("%(name)s - %(levelname)s: %(message)s"))
+logger.addHandler(_handler)
 
-# Create console handler and set level to debug
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
 
-# Create formatter
-formatter = logging.Formatter("%(name)s - %(levelname)s: %(message)s")
+def set_verbosity(level: int | str = logging.INFO) -> None:
+    """Set the level of sdhdf log messages, e.g. ``"DEBUG"`` or ``"WARNING"``.
 
-# Add formatter to ch
-ch.setFormatter(formatter)
-
-# Add ch to logger
-logger.addHandler(ch)
+    Args:
+        level (int | str, optional): Logging level. Defaults to INFO.
+    """
+    logger.setLevel(level)
