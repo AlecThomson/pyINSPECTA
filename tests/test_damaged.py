@@ -109,7 +109,7 @@ def damaged_v4(copy_of):
 
 
 def test_damaged_v4_loads(damaged_v4):
-    sdhdf = SDHDF(damaged_v4)
+    sdhdf = SDHDF.from_file(damaged_v4)
     assert sdhdf.metadata.version_info.recorded is None
     assert sdhdf.metadata.version == "4.0"  # inferred from structure
     assert sdhdf.metadata.telescope is None
@@ -124,8 +124,8 @@ def test_damaged_v4_loads(damaged_v4):
 
 
 def test_damaged_file_flags_with_default_telescope(damaged_v4):
-    sdhdf = SDHDF(damaged_v4)
-    sdhdf.flag_persistent_rfi()  # warns and assumes Parkes
+    sdhdf = SDHDF.from_file(damaged_v4)
+    sdhdf = sdhdf.flag_persistent_rfi()  # warns and assumes Parkes
     assert sdhdf.history["PROCESS"].iloc[-1] == "sdhdf.flag_persistent_rfi"
 
 
@@ -136,7 +136,7 @@ def test_damaged_dimension_labels_v3(copy_of):
             dset = h5[f"beam_0/band_SB0/astronomy_data/{name}"]
             del dset.attrs["DIMENSION_LABELS"]
             dset.attrs["DIMENSION_LABELS"] = np.bytes_("NOT SET")
-    ds = SDHDF(path).subbands[0].astronomy_dataset
+    ds = SDHDF.from_file(path).subbands[0].astronomy_dataset
     assert ds["data"].dims == DATA_DIMS
     assert ds.sizes["frequency"] == 256
 
@@ -146,11 +146,11 @@ def test_damaged_upgrade(damaged_v4, tmp_path):
 
     out = tmp_path / "upgraded.hdf"
     upgrade(damaged_v4, out)
-    upgraded = SDHDF(out)
+    upgraded = SDHDF.from_file(out)
     assert upgraded.metadata.version_info.recorded == "4.0"
     np.testing.assert_array_equal(
         upgraded.subbands[0].astronomy_dataset["data"].to_numpy(),
-        SDHDF(damaged_v4).subbands[0].astronomy_dataset["data"].to_numpy(),
+        SDHDF.from_file(damaged_v4).subbands[0].astronomy_dataset["data"].to_numpy(),
     )
 
 
@@ -197,6 +197,6 @@ def test_description_keyed_attributes(copy_of):
         attrs = decode_attrs(h5["beam_00/band_SB0/astronomy_data/data"].attrs)
     assert attrs["UNIT"] == "Jy"
     assert attrs["DIMENSION_LABELS"] == ["time", "polarisation", "frequency", "bin"]
-    ds = SDHDF(path).subbands[0].astronomy_dataset
+    ds = SDHDF.from_file(path).subbands[0].astronomy_dataset
     assert ds["data"].attrs["units"] == "Jy"
     assert ds["data"].dims == DATA_DIMS

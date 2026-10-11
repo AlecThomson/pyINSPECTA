@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+TEMPLATE_DIR = Path(__file__).parent / "data" / "templates"
 TEST_FILES = sorted(
     p.name
     for p in resources.files("sdhdf.data.tests").iterdir()
@@ -14,23 +15,13 @@ TEST_FILES = sorted(
 
 
 def data_path(name: str) -> Path:
-    package = (
-        "sdhdf.data.templates"
-        if name.startswith("sdhdf_template")
-        else "sdhdf.data.tests"
-    )
-    with resources.as_file(resources.files(package) / name) as path:
+    if name.startswith("sdhdf_template"):
+        return TEMPLATE_DIR / name
+    with resources.as_file(resources.files("sdhdf.data.tests") / name) as path:
         return Path(path)
 
 
-@pytest.fixture(
-    params=TEST_FILES
-    + sorted(
-        p.name
-        for p in resources.files("sdhdf.data.templates").iterdir()
-        if p.name.endswith(".hdf")
-    )
-)
+@pytest.fixture(params=TEST_FILES + sorted(p.name for p in TEMPLATE_DIR.glob("*.hdf")))
 def any_file(request) -> Path:
     """Every bundled test file and SDHDF template."""
     return data_path(request.param)

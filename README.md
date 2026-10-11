@@ -48,26 +48,34 @@ pip install git+https://github.com/AlecThomson/pyINSPECTA.git
 ## Usage
 
 ```python
+import astropy.units as u
 from sdhdf import SDHDF
 
-my_sdhdf = SDHDF("myfile.hdf")
+my_sdhdf = SDHDF.from_file("myfile.hdf")
 band = my_sdhdf.beams[0].subbands[0].astronomy_dataset  # an xarray.Dataset
 
-my_sdhdf.auto_flag_rfi()
-my_sdhdf.average(time=4, frequency=8)
-my_sdhdf.write("processed.hdf")  # always written as SDHDF 4.0
+processed = my_sdhdf.auto_flag_rfi().average(time=4, frequency=0.5 * u.MHz)
+processed.write("processed.hdf")
 ```
 
-Files of every SDHDF definition version (1.9 to 4.0) are read into the same
-representation, using SDHDF 4.0 names. Files whose attributes have been damaged
-by older processing software (e.g. placeholder values such as `NOT FOUND` or
-missing dimension labels) are also supported.
+Processing methods return a new `SDHDF` and leave the original alone. Averaging
+takes either a number of samples (`frequency=8`) or a width with units
+(`frequency=0.5 * u.MHz`, `time=10 * u.s`).
 
-To convert a file of any version to SDHDF 4.0:
+Files of every SDHDF definition version (1.9 to 4.0) are read the same way, using
+the SDHDF 4.0 names. Files with attributes damaged by older processing software
+(e.g. placeholder values such as `NOT FOUND`, or missing dimension labels) are
+also supported. Files are always written as SDHDF 4.0, so reading and writing a
+file upgrades it. To do this in one go:
 
-```bash
-sdhdf-upgrade old.hdf new.hdf
+```python
+from sdhdf import upgrade
+
+upgrade("old.hdf", "new.hdf")
 ```
+
+Data are read lazily with `dask`, which uses all of your cores by default, so
+there's no need to set up a dask `Client`. Writing always uses local threads.
 
 Full documentation on [Read the Docs](https://pyinspecta.readthedocs.io/en/latest/).
 

@@ -1,8 +1,4 @@
-"""Constants used throughout the package.
-
-The SDHDF format itself (object names across versions, column renames and so
-on) is described by ``sdhdf/data/definition.toml``; see :mod:`sdhdf.definition`.
-"""
+"""Constants shared across the package."""
 
 from __future__ import annotations
 

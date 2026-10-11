@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import astropy.units as u
 import numpy as np
 import pytest
 from conftest import data_path
@@ -10,7 +11,9 @@ from sdhdf import SDHDF, averaging
 @pytest.fixture
 def band():
     ds = (
-        SDHDF(data_path("sdhdf_v3.0.hdf"), in_memory=True).subbands[0].astronomy_dataset
+        SDHDF.from_file(data_path("sdhdf_v3.0.hdf"), in_memory=True)
+        .subbands[0]
+        .astronomy_dataset
     )
     rng = np.random.default_rng(0)
     weights = rng.uniform(0.5, 2.0, ds["weights"].shape).astype(np.float32)
@@ -52,12 +55,24 @@ def test_weighted_frequency_average(band):
     assert out["flags"].to_numpy()[:, 0].all()
 
 
-def test_frequency_width(band):
-    width = float(np.median(np.diff(band["frequency"].to_numpy()))) * 8
-    assert (
-        averaging.average(band, frequency=width).sizes["frequency"]
-        == band.sizes["frequency"] // 8
-    )
+@pytest.mark.parametrize("unit", [u.MHz, u.kHz, u.Hz])
+def test_frequency_width_quantity(band, unit):
+    channel_width_mhz = float(np.median(np.diff(band["frequency"].to_numpy())))
+    width = (8 * channel_width_mhz * u.MHz).to(unit)
+    averaged = averaging.average(band, frequency=width)
+    assert averaged.sizes["frequency"] == band.sizes["frequency"] // 8
+
+
+def test_time_width_quantity(band):
+    integration_time_s = float(band["INTEGRATION_TIME"][0])
+    averaged = averaging.average(band, time=2 * integration_time_s * u.s)
+    assert averaged.sizes["time"] == 1
+
+
+@pytest.mark.parametrize("value", [4.0, 0.5])
+def test_plain_float_is_ambiguous(band, value):
+    with pytest.raises(TypeError, match="number of samples"):
+        averaging.average(band, frequency=value)
 
 
 def test_time_average_metadata(band):
@@ -84,8 +99,8 @@ def test_invalid_factor(band):
 
 
 def test_sdhdf_average_lazy_and_records_history():
-    sdhdf = SDHDF(data_path("sdhdf_v4.0.hdf"))
-    sdhdf.average(time=2, frequency=4)
+    sdhdf = SDHDF.from_file(data_path("sdhdf_v4.0.hdf"))
+    sdhdf = sdhdf.average(time=2, frequency=4)
     sb = sdhdf.subbands[0]
     assert sb.astronomy_dataset["data"].chunks is not None  # still lazy
     assert dict(sb.astronomy_dataset["data"].sizes) == {
@@ -99,6 +114,18 @@ def test_sdhdf_average_lazy_and_records_history():
 
 
 def test_decimate_compat():
-    sdhdf = SDHDF(data_path("sdhdf_v4.0.hdf"))
-    sdhdf.decimate(4)
-    assert sdhdf.subbands[0].astronomy_dataset.sizes["frequency"] == 64
+    sdhdf = SDHDF.from_file(data_path("sdhdf_v4.0.hdf"))
+    assert sdhdf.decimate(4).subbands[0].astronomy_dataset.sizes["frequency"] == 64
+    freq = sdhdf.subbands[0].astronomy_dataset["frequency"].to_numpy()
+    width = 4 * float(np.median(np.diff(freq)))  # float: width in the axis units
+    assert sdhdf.decimate(width).subbands[0].astronomy_dataset.sizes["frequency"] == 64
+
+
+def test_methods_return_new_objects():
+    sdhdf = SDHDF.from_file(data_path("sdhdf_v4.0.hdf"))
+    n_history = len(sdhdf.history)
+    averaged = sdhdf.flag_persistent_rfi().average(frequency=4)
+    assert averaged is not sdhdf
+    assert sdhdf.subbands[0].astronomy_dataset.sizes["frequency"] == 256
+    assert len(sdhdf.history) == n_history
+    assert len(averaged.history) == n_history + 2

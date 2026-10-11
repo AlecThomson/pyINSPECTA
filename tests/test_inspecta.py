@@ -1,6 +1,6 @@
 """Interoperability with INSPECTA (sdhdf_tools).
 
-Skipped unless an INSPECTA build is available: set ``SDHDF_INSPECTA_BIN`` to
+Skipped unless an INSPECTA build is available (see build_inspecta.sh): set ``SDHDF_INSPECTA_BIN`` to
 the directory containing the ``sdhdf_*`` programs and ``SDHDF_RUNTIME`` to
 INSPECTA's runtime directory.
 """
@@ -50,7 +50,7 @@ def quickdump(path: Path) -> np.ndarray:
 
 def our_dump(path: Path) -> np.ndarray:
     rows: list[list[float]] = []
-    for sb in SDHDF(path).subbands:
+    for sb in SDHDF.from_file(path).subbands:
         ds = sb.astronomy_dataset.isel(bin=0)
         data = ds["data"].to_numpy()
         freq = ds["frequency"].to_numpy()
@@ -79,7 +79,7 @@ def test_inspecta_reads_upgraded_files(name, tmp_path):
     weights = np.concatenate(
         [
             sb.astronomy_dataset["weights"].to_numpy().ravel()
-            for sb in SDHDF(src).subbands
+            for sb in SDHDF.from_file(src).subbands
         ]
     )
     np.testing.assert_allclose(upgraded[:, 5], weights, rtol=1e-6)
@@ -95,7 +95,7 @@ def test_inspecta_reads_upgraded_files(name, tmp_path):
 )
 def test_weighted_averaging_matches_inspecta(args, kwargs, tmp_path):
     """Averaging with flags and weights agrees with sdhdf_modify, and we read its output."""
-    sdhdf = SDHDF(data_path("sdhdf_v3.0.hdf"), in_memory=True)
+    sdhdf = SDHDF.from_file(data_path("sdhdf_v3.0.hdf"), in_memory=True)
     sb = sdhdf.subbands[0]
     ds = sb.astronomy_dataset
     rng = np.random.default_rng(42)
@@ -108,13 +108,15 @@ def test_weighted_averaging_matches_inspecta(args, kwargs, tmp_path):
     sdhdf.write(path)
 
     result = _run("sdhdf_modify", *args, "-e", "mod", path.name, cwd=tmp_path)
-    theirs = SDHDF(tmp_path / "weighted.mod.hdf").subbands[0].astronomy_dataset
+    theirs = (
+        SDHDF.from_file(tmp_path / "weighted.mod.hdf").subbands[0].astronomy_dataset
+    )
     assert theirs["data"].dims == ("time", "polarisation", "frequency", "bin"), (
         result.stdout[-300:]
     )
 
-    mine = SDHDF(path)
-    mine.average(**kwargs)
+    mine = SDHDF.from_file(path)
+    mine = mine.average(**kwargs)
     ours = mine.subbands[0].astronomy_dataset
     np.testing.assert_array_equal(theirs["flags"].to_numpy(), ours["flags"].to_numpy())
     # Fully flagged outputs differ by design: INSPECTA writes zeros, while we

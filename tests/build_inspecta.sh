@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build INSPECTA (sdhdf_tools) for interoperability testing on Debian/Ubuntu.
 #
-# Usage: scripts/build_inspecta.sh [PREFIX]
+# Usage: tests/build_inspecta.sh [PREFIX]
 #
 # Installs the build dependencies with apt (needs root), builds the CALCEPH C
 # library from its PyPI source distribution, then builds INSPECTA into PREFIX

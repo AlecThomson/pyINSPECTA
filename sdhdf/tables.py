@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any
 
 import h5py
@@ -61,29 +62,29 @@ class SDHDFTable:
             table = split_mjd(table)
         return cls(table=table, name=name, attrs=attrs, units=units)
 
-    def __repr__(self):
-        return self.table.__repr__()
+    def __repr__(self) -> str:
+        return repr(self.table)
 
-    def __str__(self):
-        return self.table.__str__()
+    def __str__(self) -> str:
+        return str(self.table)
 
-    def _repr_html_(self):
-        return self.table._repr_html_()
+    def _repr_html_(self) -> str | None:
+        return self.table.to_html()
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Any) -> Any:
         return self.table.__getitem__(key)
 
-    def __setitem__(self, key, value):
-        return self.table.__setitem__(key, value)
+    def __setitem__(self, key: Any, value: Any) -> None:
+        self.table.__setitem__(key, value)
 
-    def __len__(self):
-        return self.table.__len__()
+    def __len__(self) -> int:
+        return len(self.table)
 
-    def __iter__(self):
-        return self.table.__iter__()
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self.table)
 
-    def __contains__(self, key):
-        return self.table.__contains__(key)
+    def __contains__(self, key: object) -> bool:
+        return key in self.table
 
     @property
     def columns(self) -> pd.Index:

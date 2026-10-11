@@ -12,7 +12,8 @@ import logging
 import sys
 
 
-class _DefaultHandler(logging.StreamHandler):
+# StreamHandler can't be subscripted at runtime on Python 3.10
+class _DefaultHandler(logging.StreamHandler):  # type: ignore[type-arg]
     """Print messages unless the root logger has handlers of its own."""
 
     def emit(self, record: logging.LogRecord) -> None:

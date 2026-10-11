@@ -1,41 +1,49 @@
 """Weighted averaging of SDHDF bands in time and frequency.
 
-Flags are treated as in CASA's ``mstransform``. The weighted mean of ``n``
-samples is::
-
-    x = sum(w_i (1 - f_i) x_i) / sum(w_i (1 - f_i))
-
-where ``w`` are the weights and ``f`` the flags, and the output weight is
-``sum(w_i (1 - f_i))``. Flagged samples are excluded unless *all* samples
-contributing to an output sample are flagged; the output is then the weighted
-mean of all of them, ``sum(w_i x_i) / sum(w_i)``, with weight ``sum(w_i)``,
-and is flagged. Samples left over when the axis length is not a multiple of
-``n`` are dropped.
+Flags are treated as in CASA's ``mstransform``: flagged samples are left out
+of the weighted mean ``sum(w (1 - f) x) / sum(w (1 - f))`` unless every sample
+in a block is flagged. The output is then the weighted mean of all of them,
+with weight ``sum(w)``, and is flagged. Samples left over when the axis length
+is not a multiple of the block size are dropped.
 """
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+import astropy.units as u
 import numpy as np
 import xarray as xr
+from astropy.units import Quantity
 
 from sdhdf.logger import logger
 
+if TYPE_CHECKING:
+    from xarray.computation.rolling import DataArrayCoarsen
 
-def factor_for_width(ds: xr.Dataset, dim: str, width: float) -> int:
-    """Number of samples along ``dim`` to average for a given width.
 
-    For ``time`` the width is in seconds (using ``INTEGRATION_TIME`` where
-    recorded); otherwise it is in the units of the coordinate.
+def samples_per_width(ds: xr.Dataset, dim: str, width: Quantity) -> int:
+    """Number of samples along ``dim`` spanning ``width``.
+
+    The sample spacing is taken in the units recorded in the file: the
+    frequency axis for ``frequency``, and ``INTEGRATION_TIME`` (or the MJD
+    spacing) for ``time``.
     """
-    values = np.asarray(ds[dim], dtype=float)
-    if values.size < 2:
-        return 1
-    step = float(np.median(np.abs(np.diff(values))))
     if dim == "time" and "INTEGRATION_TIME" in ds.coords:
-        step = float(np.median(ds["INTEGRATION_TIME"]))  # seconds
-    factor = max(1, round(width / step))
-    logger.info(f"Averaging {factor} samples along '{dim}' for a width of {width}")
-    return factor
+        integration_time = ds["INTEGRATION_TIME"]
+        step = float(np.median(integration_time)) * u.Unit(
+            integration_time.attrs.get("units", "s")
+        )
+    else:
+        values = np.asarray(ds[dim], dtype=float)
+        if values.size < 2:
+            return 1
+        step = float(np.median(np.abs(np.diff(values)))) * u.Unit(
+            ds[dim].attrs.get("units", "MHz" if dim == "frequency" else "d")
+        )
+    n_samples = max(1, round(float((width / step).decompose())))
+    logger.info(f"Averaging {n_samples} samples along '{dim}' for a width of {width}")
+    return n_samples
 
 
 def average_coordinate(coord: xr.DataArray, dim: str, n: int) -> xr.DataArray:
@@ -92,7 +100,7 @@ def average_dimension(ds: xr.Dataset, dim: str, n: int, method: str) -> xr.Datas
     flags = flags.broadcast_like(weights)
     unflagged_weights = weights.where(~flags, 0)
 
-    def blocks(arr: xr.DataArray) -> xr.DataArray:
+    def blocks(arr: xr.DataArray) -> DataArrayCoarsen:
         arr = arr.drop_vars([c for c in arr.coords if c not in arr.dims])
         return arr.coarsen({dim: n}, boundary="trim")
 
@@ -114,10 +122,10 @@ def average_dimension(ds: xr.Dataset, dim: str, n: int, method: str) -> xr.Datas
             every = blocks((x * weights).astype(np.float64)).sum() / w_all.where(
                 w_all > 0
             )
-        value = xr.where(all_flagged, every, good)
+        value = every.where(all_flagged, good)
         # Zero weights: fall back to the unweighted mean of the same samples
         value = value.fillna(
-            xr.where(all_flagged, blocks(x).mean(), blocks(x.where(~flags)).mean())
+            blocks(x).mean().where(all_flagged, blocks(x.where(~flags)).mean())
         )
         new_vars[var] = value.astype(x.dtype).transpose(*x.dims).assign_attrs(x.attrs)
 
@@ -125,7 +133,7 @@ def average_dimension(ds: xr.Dataset, dim: str, n: int, method: str) -> xr.Datas
         {
             **new_vars,
             "flags": all_flagged.assign_attrs(ds["flags"].attrs),
-            "weights": xr.where(all_flagged, w_all, w_good)
+            "weights": w_all.where(all_flagged, w_good)
             .astype(np.float32)
             .assign_attrs(ds["weights"].attrs),
         },
@@ -139,24 +147,27 @@ def average_dimension(ds: xr.Dataset, dim: str, n: int, method: str) -> xr.Datas
 
 def average(
     ds: xr.Dataset,
-    time: int | float | None = None,
-    frequency: int | float | None = None,
+    time: int | Quantity | None = None,
+    frequency: int | Quantity | None = None,
     method: str = "mean",
 ) -> xr.Dataset:
     """Average a band dataset in time and/or frequency.
 
     Args:
         ds (xr.Dataset): Band dataset (astronomy or calibrator).
-        time (int | float, optional): If int, the number of integrations to
-            average. If float, the desired integration time in seconds.
-        frequency (int | float, optional): If int, the number of channels to
-            average. If float, the desired channel width in the units of the
-            frequency axis (usually MHz).
+        time (int | Quantity, optional): Number of integrations to average, or
+            the integration time to average to (e.g. ``10 * u.s``).
+        frequency (int | Quantity, optional): Number of channels to average,
+            or the channel width to average to (e.g. ``0.5 * u.MHz``).
         method (str, optional): ``"mean"`` (weighted) or ``"median"`` (of
             unflagged samples). Defaults to ``"mean"``.
 
     Returns:
         xr.Dataset: The averaged dataset.
+
+    Raises:
+        TypeError: If ``time`` or ``frequency`` is a plain float, which would
+            be ambiguous between a count and a width.
     """
     if method not in ("mean", "median"):
         msg = f"Unknown averaging method '{method}'"
@@ -164,11 +175,16 @@ def average(
     for dim, value in (("frequency", frequency), ("time", time)):
         if value is None:
             continue
-        n = (
-            factor_for_width(ds, dim, float(value))
-            if isinstance(value, float)
-            else int(value)
-        )
+        if isinstance(value, Quantity):
+            n = samples_per_width(ds, dim, value)
+        elif isinstance(value, int | np.integer):
+            n = int(value)
+        else:
+            msg = (
+                f"'{dim}' must be a number of samples (int) or a width with units "
+                f"(e.g. astropy Quantity), got {value!r}"
+            )
+            raise TypeError(msg)
         if dim == "frequency" and "frequency_per_time" in ds.coords:
             ds = ds.drop_vars("frequency_per_time")
             logger.warning(

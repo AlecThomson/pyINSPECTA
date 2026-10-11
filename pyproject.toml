@@ -74,9 +74,6 @@ dev = [
     "ipython",
 ]
 
-[project.scripts]
-sdhdf-upgrade = "sdhdf.cli:upgrade_main"
-
 [tool.hatch]
 version.source = "vcs"
 build.hooks.vcs.version-file = "sdhdf/_version.py"
@@ -86,6 +83,34 @@ Homepage = "https://github.com/AlecThomson/pyINSPECTA"
 Documentation = "https://pyinspecta.readthedocs.io"
 "Bug Tracker" = "https://github.com/AlecThomson/pyINSPECTA/issues"
 "SDHDF definition" = "https://doi.org/10.25919/q1hf-8p06"
+
+[tool.mypy]
+files = ["sdhdf", "tests"]
+ignore_missing_imports = true
+
+warn_unused_configs = true
+warn_redundant_casts = true
+
+# dask is largely untyped
+[[tool.mypy.overrides]]
+module = ["dask", "dask.*"]
+follow_imports = "skip"
+
+# Equivalent to --strict, which mypy only allows globally
+[[tool.mypy.overrides]]
+module = "sdhdf.*"
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_reexport = true
+strict_equality = true
+extra_checks = true
 
 [tool.ruff]
 extend-exclude = ["examples/*.py", "docs/conf.py"]

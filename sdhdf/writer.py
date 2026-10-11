@@ -1,16 +1,8 @@
-"""Writing of SDHDF files in the latest definition (4.0).
-
-Whatever version a file was read from, it is written in the SDHDF 4.0
-layout: 4.0 group, dataset and column names, compound
-``(description, unit, value)`` attributes, 2-D frequency axes and 4-D flags
-and weights (size-1 axes where they apply to all polarisations or bins).
-Metadata tables that describe the data shape (band parameters, observation
-parameters) are rebuilt from the data, so processing such as averaging is
-reflected in them.
-"""
+"""Writing of SDHDF files in the latest definition (4.0), whatever version they were read from."""
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -19,6 +11,7 @@ import h5py
 import numpy as np
 import pandas as pd
 import xarray as xr
+from dask.diagnostics import ProgressBar
 
 from sdhdf import history
 from sdhdf._version import version as __version__
@@ -28,6 +21,8 @@ from sdhdf.logger import logger
 
 if TYPE_CHECKING:
     from sdhdf.sdhdf import SDHDF, Beam, SubBand
+
+PendingWrites = list[tuple[da.Array, h5py.Dataset]]
 
 
 def compound_attr(
@@ -122,14 +117,20 @@ def write_table(
             dset.attrs[key] = compound_attr(value, description=key)
 
 
-def write_array(group: h5py.Group, name: str, arr: xr.DataArray, dtype) -> h5py.Dataset:
-    """Write a DataArray to a new dataset, streaming dask arrays chunk by chunk."""
+def write_array(
+    group: h5py.Group,
+    name: str,
+    arr: xr.DataArray,
+    dtype: type[np.generic],
+    pending: PendingWrites,
+) -> h5py.Dataset:
+    """Create a dataset for a DataArray; dask arrays are added to ``pending`` to store later."""
     data = arr.data
     dset = group.create_dataset(
         name, shape=arr.shape, dtype=dtype, chunks=True if arr.size else None
     )
     if isinstance(data, da.Array):
-        da.store(data.astype(dtype), dset, lock=True, scheduler="threads")
+        pending.append((data.astype(dtype), dset))
     else:
         dset[...] = np.asarray(data, dtype=dtype)
     dset.attrs["DIMENSION_LABELS"] = np.array(list(arr.dims), dtype=h5py.string_dtype())
@@ -177,6 +178,7 @@ def write_data_group(
     ds: xr.Dataset,
     variables: dict[str, str],
     description: str,
+    pending: PendingWrites,
 ) -> None:
     """Write an astronomy or calibrator data group (data, frequency, flags, weights)."""
     _set_class(group, "sdhdf_data", description)
@@ -184,7 +186,7 @@ def write_data_group(
         if var not in ds:
             continue
         arr = _to_4d(ds[var], rename_bin="cal_bin" if var == "binned" else None)
-        dset = write_array(group, path, arr, np.float32)
+        dset = write_array(group, path, arr, np.float32, pending)
         _set_class(dset, "sdhdf_waterfall", f"{description} ({var})")
         attrs = {
             k: v
@@ -221,10 +223,10 @@ def write_data_group(
                 f"Writing {var} with dimensions {extra}; INSPECTA can only read "
                 f"{var} with one value per integration and channel."
             )
-    flags = write_array(group, "flags", _to_4d(ds["flags"]), np.uint8)
+    flags = write_array(group, "flags", _to_4d(ds["flags"]), np.uint8, pending)
     _set_class(flags, "sdhdf_flags", "Flags dataset")
     _set_attrs(flags, {"FLAG_TYPE": "0=not flagged, 1=flagged"})
-    weights = write_array(group, "weights", _to_4d(ds["weights"]), np.float32)
+    weights = write_array(group, "weights", _to_4d(ds["weights"]), np.float32, pending)
     _set_class(weights, "sdhdf_weights", "Weights dataset")
     _set_attrs(
         weights,
@@ -263,7 +265,7 @@ def band_parameters_row(
     return row
 
 
-def write_beam(h5: h5py.File, beam: Beam) -> None:
+def write_beam(h5: h5py.File, beam: Beam, pending: PendingWrites) -> None:
     """Write a beam group: its bands and band_parameters tables."""
     group = h5.create_group(beam.label)
     _set_class(
@@ -273,7 +275,7 @@ def write_beam(h5: h5py.File, beam: Beam) -> None:
     )
     band_rows, cal_rows = [], []
     for sb in beam.subbands:
-        write_band(group, sb)
+        write_band(group, sb, pending)
         band_rows.append(
             band_parameters_row(sb.label, sb.astronomy_dataset, sb.band_parameters)
         )
@@ -293,7 +295,7 @@ def write_beam(h5: h5py.File, beam: Beam) -> None:
         )
 
 
-def write_band(beam_group: h5py.Group, sb: SubBand) -> None:
+def write_band(beam_group: h5py.Group, sb: SubBand, pending: PendingWrites) -> None:
     """Write a band group: astronomy data, calibrator data and observation metadata."""
     group = beam_group.create_group(sb.label)
     _set_class(
@@ -302,7 +304,9 @@ def write_band(beam_group: h5py.Group, sb: SubBand) -> None:
         "SDHDF group containing data products specific to the frequency band",
     )
     astro = group.create_group("astronomy_data")
-    write_data_group(astro, sb.astronomy_dataset, {"data": "data"}, "Astronomy data")
+    write_data_group(
+        astro, sb.astronomy_dataset, {"data": "data"}, "Astronomy data", pending
+    )
     meta = group.create_group("metadata")
     _set_class(meta, "sdhdf_meta", "SDHDF group containing observation metadata")
     obs = sb.astronomy_dataset
@@ -323,6 +327,7 @@ def write_band(beam_group: h5py.Group, sb: SubBand) -> None:
             }
             | {"data": "data"},
             "Calibrator data",
+            pending,
         )
         write_table(
             meta,
@@ -334,17 +339,22 @@ def write_band(beam_group: h5py.Group, sb: SubBand) -> None:
 
 def _coord_units(ds: xr.Dataset) -> dict[str, str]:
     return {
-        name: c.attrs["units"] for name, c in ds.coords.items() if "units" in c.attrs
+        str(name): c.attrs["units"]
+        for name, c in ds.coords.items()
+        if "units" in c.attrs
     }
 
 
-def write_sdhdf(sdhdf: SDHDF, filename: str | Path, overwrite: bool = False) -> None:
+def write_sdhdf(
+    sdhdf: SDHDF, filename: str | Path, overwrite: bool = False, progress: bool = True
+) -> None:
     """Write an :class:`~sdhdf.SDHDF` object as an SDHDF 4.0 file.
 
     Args:
         sdhdf (SDHDF): The object to write.
         filename (str | Path): Output file.
         overwrite (bool, optional): Overwrite an existing file. Defaults to False.
+        progress (bool, optional): Show a progress bar. Defaults to True.
 
     Raises:
         FileExistsError: If the file exists and ``overwrite`` is False.
@@ -355,7 +365,10 @@ def write_sdhdf(sdhdf: SDHDF, filename: str | Path, overwrite: bool = False) -> 
         if not overwrite:
             msg = f"File '{filename}' already exists"
             raise FileExistsError(msg)
-        if filename.resolve() == sdhdf.filename.resolve():
+        if (
+            sdhdf.filename is not None
+            and filename.resolve() == sdhdf.filename.resolve()
+        ):
             msg = "Cannot overwrite the file being read; write to a new file instead."
             raise ValueError(msg)
 
@@ -408,8 +421,16 @@ def write_sdhdf(sdhdf: SDHDF, filename: str | Path, overwrite: bool = False) -> 
             if name.endswith("configuration"):
                 write_table(config, name, table.table, units=table.units)
 
+        pending: PendingWrites = []
         for beam in sdhdf.beams:
-            write_beam(h5, beam)
+            write_beam(h5, beam, pending)
+        # Local threads: open h5py files can't be sent to other processes
+        with ProgressBar() if progress and pending else nullcontext():
+            da.store(
+                [source for source, _ in pending],
+                [target for _, target in pending],
+                lock=True,
+                scheduler="threads",
+            )
     tmp.replace(filename)
-    sdhdf.metadata.history.table = hist
     logger.info(f"Wrote '{filename}' (SDHDF {LATEST_VERSION})")

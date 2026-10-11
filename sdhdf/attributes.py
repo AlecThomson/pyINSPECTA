@@ -1,16 +1,7 @@
 """Decoding of SDHDF HDF5 attributes and cell values.
 
-SDHDF attributes have been stored in several ways over the life of the format:
-
-* plain (byte-)strings and numbers (SDHDF < 4.0),
-* compound ``(description, unit, value)`` arrays (SDHDF 4.0 files),
-* compound ``(description, unit, default)`` arrays (SDHDF 4.0 templates),
-* arrays of strings (e.g. ``DIMENSION_LABELS``).
-
-In addition, files processed by older versions of INSPECTA can contain
-damaged attributes: compound attributes collapsed into scalar strings, and
-placeholder values such as ``"NOT SET"``, ``"NOT FOUND"``, ``"UNKNOWN"`` or
-``"FIX ME 2"``. Everything in this module treats such placeholders as missing.
+Placeholders written by older INSPECTA versions (e.g. ``"NOT FOUND"``,
+``"FIX ME 2"``) are treated as missing.
 """
 
 from __future__ import annotations
@@ -116,7 +107,8 @@ def attr_unit(value: Any) -> str | None:
         and value.dtype.names
         and "unit" in value.dtype.names
     ):
-        return clean(value.reshape(-1)[0]["unit"])
+        unit = clean(value.reshape(-1)[0]["unit"])
+        return None if unit is None else str(unit)
     return None
 
 
@@ -143,7 +135,7 @@ def _attr_description(key: str, raw: Any) -> str:
     return key
 
 
-def decode_attrs(attrs: h5py.AttributeManager | dict) -> dict[str, Any]:
+def decode_attrs(attrs: h5py.AttributeManager | dict[str, Any]) -> dict[str, Any]:
     """Decode all attributes of an HDF5 object, repairing damaged entries.
 
     Attributes keyed by their SDHDF 4.0 description (as written by some

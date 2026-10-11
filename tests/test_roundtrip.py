@@ -29,7 +29,7 @@ def assert_same_dataset(a, b):
 def test_upgrade_roundtrip(any_file, tmp_path):
     out = tmp_path / "upgraded.hdf"
     upgrade(any_file, out)
-    original, upgraded = SDHDF(any_file), SDHDF(out)
+    original, upgraded = SDHDF.from_file(any_file), SDHDF.from_file(out)
     assert upgraded.metadata.version_info.recorded == "4.0"
     assert set(original.metadata.tables) <= set(upgraded.metadata.tables)
     assert len(upgraded.history) == len(original.history) + 2  # upgrade + write
@@ -65,7 +65,7 @@ def test_written_layout_is_v4(tmp_path):
 
 
 def test_write_refuses_overwrite(tmp_path):
-    sdhdf = SDHDF(data_path("sdhdf_v4.0.hdf"))
+    sdhdf = SDHDF.from_file(data_path("sdhdf_v4.0.hdf"))
     out = tmp_path / "out.hdf"
     sdhdf.write(out)
     with pytest.raises(FileExistsError):
@@ -74,12 +74,11 @@ def test_write_refuses_overwrite(tmp_path):
 
 
 def test_processed_file_roundtrip(tmp_path):
-    sdhdf = SDHDF(data_path("sdhdf_v3.0.hdf"))
-    sdhdf.flag_persistent_rfi()
-    sdhdf.average(frequency=4)
+    sdhdf = SDHDF.from_file(data_path("sdhdf_v3.0.hdf"))
+    sdhdf = sdhdf.flag_persistent_rfi().average(frequency=4)
     out = tmp_path / "processed.hdf"
     sdhdf.write(out)
-    written = SDHDF(out)
+    written = SDHDF.from_file(out)
     assert_same_dataset(
         sdhdf.subbands[0].astronomy_dataset, written.subbands[0].astronomy_dataset
     )
@@ -90,14 +89,6 @@ def test_processed_file_roundtrip(tmp_path):
         "sdhdf.average",
         "sdhdf.write",
     ]
-
-
-def test_cli_upgrade(tmp_path):
-    from sdhdf.cli import upgrade_main  # noqa: PLC0415
-
-    out = tmp_path / "cli.hdf"
-    upgrade_main([str(data_path("sdhdf_v2.1.hdf")), str(out)])
-    assert SDHDF(out).metadata.version_info.recorded == "4.0"
 
 
 def test_observation_parameters_complete(tmp_path):
@@ -111,3 +102,15 @@ def test_observation_parameters_complete(tmp_path):
     with h5py.File(out) as h5:
         obs = h5["beam_0/band_0/metadata/observation_parameters"]
         assert set(required) <= set(obs.dtype.names)
+
+
+def test_write_shows_one_progress_bar(tmp_path, capsys):
+    SDHDF.from_file(data_path("sdhdf_v3.0.hdf")).write(tmp_path / "out.hdf")
+    assert capsys.readouterr().out.count("100% Completed") == 1
+
+
+def test_write_does_not_change_the_object(tmp_path):
+    sdhdf = SDHDF.from_file(data_path("sdhdf_v4.0.hdf"))
+    n_history = len(sdhdf.history)
+    sdhdf.write(tmp_path / "out.hdf", progress=False)
+    assert len(sdhdf.history) == n_history

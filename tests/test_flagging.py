@@ -19,7 +19,7 @@ def _rfi(f0, f1, rcvr="all", mjd0=0, mjd1=999999, obs="Parkes"):
 
 @pytest.fixture
 def band():
-    return SDHDF(data_path(V3)).subbands[0].astronomy_dataset
+    return SDHDF.from_file(data_path(V3)).subbands[0].astronomy_dataset
 
 
 def test_bundled_table_does_not_flag_clean_band(band):
@@ -92,8 +92,8 @@ def test_sigma_clip_finds_spike(band):
 
 
 def test_sdhdf_auto_flag_records_history():
-    sdhdf = SDHDF(data_path(V3))
-    sdhdf.auto_flag_rfi()
+    sdhdf = SDHDF.from_file(data_path(V3))
+    sdhdf = sdhdf.auto_flag_rfi()
     assert list(sdhdf.history["PROCESS"].iloc[-2:]) == [
         "sdhdf.flag_persistent_rfi",
         "sdhdf.auto_flag_rfi",

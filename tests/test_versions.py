@@ -23,12 +23,12 @@ from sdhdf.constants import DATA_DIMS
     ],
 )
 def test_version_detected(name, version):
-    assert SDHDF(data_path(name)).metadata.version == version
+    assert SDHDF.from_file(data_path(name)).metadata.version == version
 
 
 def test_common_representation(any_file):
     """Every version is read into the same canonical structure."""
-    sdhdf = SDHDF(any_file)
+    sdhdf = SDHDF.from_file(any_file)
     assert sdhdf.beams
     for sb in sdhdf.subbands:
         ds = sb.astronomy_dataset
@@ -45,7 +45,7 @@ def test_common_representation(any_file):
 
 
 def test_metadata_tables_use_v4_names(test_file):
-    sdhdf = SDHDF(test_file)
+    sdhdf = SDHDF.from_file(test_file)
     ph = sdhdf.metadata.primary_header
     for col in (
         "HEADER_DEFINITION_VERSION",
@@ -73,7 +73,7 @@ def test_metadata_tables_use_v4_names(test_file):
     [("sdhdf_v2.0.hdf", 128), ("sdhdf_v3.0.hdf", 256), ("sdhdf_v4.0.hdf", 256)],
 )
 def test_calibrator_data(name, n_cal_chan):
-    cal = SDHDF(data_path(name)).subbands[0].calibrator_dataset
+    cal = SDHDF.from_file(data_path(name)).subbands[0].calibrator_dataset
     assert cal is not None
     assert {"on", "off", "binned"} <= set(cal.data_vars)
     assert cal.sizes["frequency"] == n_cal_chan
@@ -81,8 +81,8 @@ def test_calibrator_data(name, n_cal_chan):
 
 
 def test_lazy_and_in_memory_agree(test_file):
-    lazy = SDHDF(test_file).subbands[0].astronomy_dataset
-    eager = SDHDF(test_file, in_memory=True).subbands[0].astronomy_dataset
+    lazy = SDHDF.from_file(test_file).subbands[0].astronomy_dataset
+    eager = SDHDF.from_file(test_file, in_memory=True).subbands[0].astronomy_dataset
     assert lazy["data"].chunks is not None
     assert eager["data"].chunks is None
     np.testing.assert_array_equal(lazy["data"].to_numpy(), eager["data"].to_numpy())
@@ -91,6 +91,6 @@ def test_lazy_and_in_memory_agree(test_file):
 def test_lazy_arrays_pickle(test_file):
     import pickle  # noqa: PLC0415
 
-    ds = SDHDF(test_file).subbands[0].astronomy_dataset
+    ds = SDHDF.from_file(test_file).subbands[0].astronomy_dataset
     restored = pickle.loads(pickle.dumps(ds))
     np.testing.assert_array_equal(restored["data"].to_numpy(), ds["data"].to_numpy())

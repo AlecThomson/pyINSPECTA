@@ -1,9 +1,4 @@
-"""SDHDF flagging utilities
-
-All functions take a band Dataset (see :mod:`sdhdf.reader`) and return a new
-Dataset whose ``flags`` are the logical OR of the existing flags and any new
-ones; existing flags are never cleared.
-"""
+"""SDHDF flagging utilities. Existing flags are never cleared."""
 
 from __future__ import annotations
 
@@ -21,7 +16,7 @@ from sdhdf.logger import logger
 
 
 class AutoFlagError(Exception):
-    def __init__(self, msg):
+    def __init__(self, msg: str) -> None:
         super().__init__(msg)
         self.msg = msg
 

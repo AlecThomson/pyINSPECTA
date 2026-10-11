@@ -9,9 +9,7 @@
 # doi:10.25919/q1hf-8p06), Toomey et al. 2024 (A&C 47, 100804) tables 3 and 4,
 # and files written by the Parkes Medusa backend and by INSPECTA.
 
-# ---------------------------------------------------------------------------
 # Object names: canonical role -> candidate names, newest first
-# ---------------------------------------------------------------------------
 
 # Relative to the file root
 [groups]
@@ -63,9 +61,7 @@ frequency = ["frequency", "cal_frequency"]
 flags = ["flags", "cal_data_flags"]
 weights = ["weights", "cal_data_weights"]
 
-# ---------------------------------------------------------------------------
 # Table columns
-# ---------------------------------------------------------------------------
 
 # Legacy column name -> 4.0 name. The calibrator_* tables use the renames of
 # the table they mirror (e.g. calibrator_band_parameters -> band_parameters).
@@ -165,9 +161,7 @@ calibrator_instrument_configuration = "Digital backend instrument configuration 
 receiver_configuration = "Receiver instrument configuration"
 telescope_configuration = "Telescope configuration"
 
-# ---------------------------------------------------------------------------
 # Attributes and dimensions
-# ---------------------------------------------------------------------------
 
 # Start of the 4.0 description of each attribute (lower case) -> its key. Some
 # versions of INSPECTA write attributes keyed by their description.

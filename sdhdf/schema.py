@@ -1,9 +1,7 @@
 """Version-independent discovery of the SDHDF layout.
 
-Rather than branching on the version number, the reader *discovers* each
-object by probing the candidate names in :mod:`sdhdf.constants`. The version
-number recorded in the file is used for information only, since files written
-by some tools record a damaged or placeholder version.
+Objects are found by trying their candidate names, since some files record a
+damaged or placeholder version number.
 """
 
 from __future__ import annotations
@@ -57,11 +55,6 @@ def band_labels(beam: h5py.Group) -> list[str]:
         for k in beam
         if re.match(r"^band_\w+$", k) and isinstance(beam[k], h5py.Group)
     ]
-
-
-# ---------------------------------------------------------------------------
-# Version detection
-# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
