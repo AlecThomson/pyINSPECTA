@@ -11,14 +11,24 @@ def test_version():
     assert importlib.metadata.version("sdhdf") == m.__version__
 
 
-def test_import_has_no_side_effects():
-    """Importing must not install log handlers or silence warnings."""
-    logger = logging.getLogger("sdhdf")
-    assert all(
-        isinstance(h, logging.NullHandler) or getattr(h, "_sdhdf", False)
-        for h in logger.handlers
-    )
+def test_import_does_not_silence_warnings():
     assert not any(f[0] == "ignore" and f[2] is Warning for f in warnings.filters)
+
+
+def test_logging_prints_once(capsys):
+    """INFO is printed by default, but not when the root logger handles it."""
+    logger = logging.getLogger("sdhdf")
+    root = logging.getLogger()
+    saved = root.handlers[:]
+    try:
+        root.handlers = []
+        logger.info("default")
+        assert "default" in capsys.readouterr().err
+        root.addHandler(logging.NullHandler())
+        logger.info("configured")
+        assert "configured" not in capsys.readouterr().err
+    finally:
+        root.handlers = saved
 
 
 def test_public_api():
